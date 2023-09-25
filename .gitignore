@@ -1,0 +1,6 @@
+.ipynb_checkpoints/*
+*/.ipynb_checkpoints/*
+scripts/laser_test_class.py
+runs/*
+test.ipynb
+*/__pycache__/*
