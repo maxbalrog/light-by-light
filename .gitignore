@@ -4,3 +4,4 @@ scripts/laser_test_class.py
 runs/*
 test.ipynb
 */__pycache__/*
+fftw*

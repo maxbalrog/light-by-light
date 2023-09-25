@@ -13,6 +13,11 @@ import yaml
 
 from scripts.utils import write_yaml
 
+__all__ = ['template_ini', 'template_laser', 'template_laser_ell',
+           'W_to_E0', 'kmax_grid', 'get_spatial_steps', 'get_t_steps',
+           'get_minmax_params', 'create_geometry', 'create_ini_file']
+
+
 template_ini = '''
 [Setup]
 N = {Nx}, {Ny}, {Nz}
@@ -79,7 +84,7 @@ def W_to_E0(laser_params):
     tau = laser_params['tau']
     if 'w0' in laser_params.keys():
         w0x = w0y = laser_params['w0']
-    elif ['w0x', 'w0y'] in laser_params.keys():
+    elif 'w0x' in laser_params.keys():
         w0x = laser_params['w0x']
         w0y = laser_params['w0y']
     return np.sqrt(8*np.sqrt(2/np.pi)*W/(np.pi * tau * w0x * w0y)/(c * epsilon_0))
@@ -94,7 +99,7 @@ def kmax_grid(laser_params):
     theta, phi = laser_params['theta'], laser_params['phi']
     if 'w0' in laser_params.keys():
         w0 = laser_params['w0']
-    elif ['w0x', 'w0y'] in laser_params.keys():
+    elif 'w0x' in laser_params.keys():
         w0 = min(laser_params['w0x'], laser_params['w0y'])
     
     k = 2*np.pi/lam    
@@ -168,7 +173,7 @@ def get_minmax_params(laser_params):
         lam_min = min(lam_min, laser['lam'])
         if 'w0' in laser.keys():
             w0_max = max(w0_max, laser['w0'])
-        elif ['w0x', 'w0y'] in laser.keys():
+        elif 'w0x' in laser.keys():
             w0_max = max([w0_max, laser['w0x'], laser['w0y']])
     return tau_max, w0_max, lam_min
 
@@ -218,16 +223,12 @@ def create_ini_file(laser_params, save_path, factors, resolutions,
     ]
     
     # Determine time grid
-    t_start = -factors['t']*tau
-    t_end = factors['t']*tau
+    t_start, t_end = -factors['t']*tau, factors['t']*tau
     t_steps = get_t_steps(t_start, t_end, lam, resolutions['t'])
     
     # Determine spatial grid
     L = create_geometry(tau, w0, factors, geometry)
     N = get_spatial_steps(laser_list, L/2, resolutions['spatial'])
-    
-    # Make sure the directory exists
-    Path(os.path.dirname(save_path)).mkdir(parents=True, exist_ok=True)
     
     # Save some simulation parameters to yaml
     yaml_file = f'{os.path.dirname(save_path)}/simulation_box.yml'
@@ -241,9 +242,10 @@ def create_ini_file(laser_params, save_path, factors, resolutions,
                                    lasers=n_lasers, low_memory_mode=low_memory_mode,
                                    t_start=t_start, t_end=t_end, t_steps=t_steps,
                                    fieldmode='solver')
-
+    
     for i,laser in enumerate(laser_list):
-        template += template_laser.format(laser_n=i+1, **laser)
+        template_pulse = template_laser if 'w0' in laser.keys() else template_laser_ell
+        template += template_pulse.format(laser_n=i+1, **laser)
     
     with open(f'{save_path}/vacem.ini', 'w+') as f:
         f.write(template)
