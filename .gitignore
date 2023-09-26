@@ -2,6 +2,6 @@
 */.ipynb_checkpoints/*
 scripts/laser_test_class.py
 runs/*
-test.ipynb
+test*
 */__pycache__/*
 fftw*

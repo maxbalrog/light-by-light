@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 from scripts.vacem_ini import create_ini_file
+from scripts.utils import decypher_yaml
 
 __all__ = ['run_simulation']
 
@@ -26,4 +27,18 @@ def run_simulation(laser_params, save_path, factors, resolutions,
     # Run vacem script
     os.system(f'{vacem_path} --output {save_path} --threads {n_threads} load_ini {vacem_ini}')
     return 0
+
+
+def run_grid_scan(yaml_file, save_path, geometry='xz',
+                  low_memory_mode=False, n_threads=12):
+    params_to_vary, data = decypher_yaml(yaml_file)
+    laser_params, factors, resolutions = data
+    
+    # Iterate over variable parameters and create appropriate laser_params
+    # Run simulations: should we include postprocess to run_simulation()?
+    
+    
+    
+    
+    
 
