@@ -4,10 +4,11 @@ Utility functions for postprocessing vacem simulation results:
 
 Author: Maksim Valialshchikov, @maxbalrog (github)
 '''
-
 import numpy as np
 from scipy.constants import c
 from scipy.constants import physical_constants
+from pathlib import Path
+import os
 
 from vacem.support.resultfile import ResultFile
 from vacem.support.eval_functions import field_to_spherical
@@ -188,6 +189,24 @@ class SignalAnalyzer:
         self.N_disc = self.N_disc * self.dphi * self.dtheta
         self.Nperp_disc = self.Nperp_disc * self.dphi * self.dtheta
         return self.N_disc, self.Nperp_disc
+    
+    def save_data(self, save_path):
+        Path(f'{os.path.dirname(save_path)}').mkdir(parents=True, exist_ok=True)
+        file = f'{os.path.dirname(save_path)}/postprocess_data.npz'
+        data = {
+            'theta': self.theta,
+            'phi': self.phi,
+            'N_angular': self.N_angular,
+            'Nperp_angular': self.Nperp_angular,
+            'background': self.background,
+            'discernible_area': self.discernible_area,
+            'discernible_area_perp': self.discernible_area_perp,
+            'N_total': self.N_total,
+            'Nperp_total': self.Nperp_total,
+            'N_disc': self.N_disc,
+            'Nperp_disc': self.Nperp_disc,
+        }
+        np.savez(file, **data)
     
     
     
