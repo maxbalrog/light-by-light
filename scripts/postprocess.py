@@ -9,7 +9,11 @@ import numpy as np
 from scipy.constants import c
 from scipy.constants import physical_constants
 
-__all__ = ['lam_to_omega_in_eV', 'transform_spherical', 'beam_divergence']
+from vacem.support.resultfile import ResultFile
+from vacem.support.eval_functions import field_to_spherical
+
+__all__ = ['lam_to_omega_in_eV', 'transform_spherical', 'beam_divergence',
+           'SignalAnalyzer']
 
 hbar_eV, _, _ = physical_constants['natural unit of action in eV s']
 eV_to_J, _, _ = physical_constants['electron volt']
@@ -76,6 +80,95 @@ def beam_divergence(theta, phi, laser_params, geometry):
     exp = 0.5*(omega0*w0)**2*(mu1**2*np.cos(phi_L)**2 + mu2**2*np.sin(phi_L)**2)*theta_L**2
     Nbg = mu1 * mu2 * N0 * np.exp(-exp)
     return Nbg
+
+
+class SignalAnalyzer:
+    def __init__(self, file, laser_pol, laser_params, geometry='xz'):
+        self.result = ResultFile(file)
+        self.laser_pol = laser_pol
+        self.laser_params = laser_params
+        self.geometry = geometry
+        
+        self.N_xyz = self.result.get_total_number_spectrum()
+        self.Nperp_xyz = self.result.get_number_spectrum_polarized_spherical(laser_perp)
+        self.x, self.y, self.z = [np.array(ax) for ax in self.N_xyz.axes]
+        
+        self.get_spherical_density()
+        
+        self.check_photon_number()
+        
+    def get_spherical_density(self):
+        self.N = field_to_spherical(self.N_xyz, preserve_integral=False)
+        self.Nperp = field_to_spherical(self.Nperp_xyz, preserve_integral=False)
+        self.k, self.theta, self.phi = [np.array(ax) for ax in self.N.axes]
+        self.dk = self.k[1] - self.k[0]
+        self.dtheta = self.theta[1] - self.theta[0]
+        self.dphi = self.phi[1] - self.phi[0]
+        
+        self.N_angular = self.integrate_spherical(self.N, axis=['k'])
+        self.Nperp_angular = self.integrate_spherical(self.Nperp, axis=['k'])
+    
+    def integrate_spherical(self, arr, axis=['k','theta','phi']):
+        if 'k' in axis:
+            integrated = np.sum(arr*self.k[:,None,None]**2, axis=0) * self.dk
+        if 'phi' in axis:
+            integrated = np.sum(integrated, axis=1) * self.d_phi
+        if 'theta' in axis:
+            integrated = np.sum(integrated*np.sin(self.theta)) * self.d_theta
+        return integrated
+     
+    def check_photon_number(self):
+        N_total_xyz = self.N_xyz.integrate().matrix
+        N_total_sph = self.integrate_spherical(self.N.matrix,
+                                               axis=['k','theta','phi'])
+        assert np.isclose(N_total_xyz, N_total_sph), 'Total number of signal\
+        photons for decart and spherical system is not the same'
+        self.N_total = N_total_sph
+        
+        Nperp_total_xyz = self.Nperp_xyz.integrate().matrix
+        Nperp_total_sph = self.integrate_spherical(self.Nperp.matrix,
+                                                   axis=['k','theta','phi'])
+        assert np.isclose(Nperp_total_xyz, Nperp_total_sph), 'Total number of\
+        perp signal photons for decart and spherical system is not the same'
+        self.Nperp_total = Nperp_total_sph
+        
+    def get_background(self):
+        self.background = 0
+        self.background_lasers = []
+        for laser in self.laser_params:
+            background_ = beam_divergence(self.theta, self.phi,
+                                          laser, self.geometry)
+            self.background += background_
+            self.background_lasers.append(background_)
+        return self.background
+    
+    def get_discernible_area(self):
+        Nbg = self.get_background()
+        
+        self.discernible_area = np.zeros_like(Nbg).astype(int)
+        self.discernible_area_perp = np.zeros_like(discernible_area)
+
+        for idx_theta in range(len(self.theta)):
+            idx = self.N_angular[idx_theta] > Nbg[idx_theta]
+            self.discernible_area[idx_theta,idx] = 1
+            idx = self.Nperp_angular[idx_theta] > self.pol_purity*Nbg[idx_theta]
+            self.discernible_area_perp[idx_theta,idx] = 1
+        return self.discernible_area, self.discernible_area_perp
+    
+    def get_discernible_signal(self, pol_purity=1e-10):
+        self.pol_purity = pol_purity
+        self.get_discernible_area()
+        
+        self.N_disc, self.Nperp_disc = 0, 0
+        for i in range(len(self.theta)):
+            for j in range(len(self.phi)):
+                if self.discernible_area[i,j]:
+                    self.N_disc += self.N_angular[i,j] * np.sin(theta[i])
+                if self.discernible_area_perp[i,j]:
+                    self.Nperp_disc += self.Nperp_angular[i,j] * np.sin(theta[i])
+        self.N_disc = self.N_disc * dphi * dtheta
+        self.Nperp_disc = self.Nperp_disc * dphi * dtheta
+        return self.N_disc, self.Nperp_disc
     
     
     
