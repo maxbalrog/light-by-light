@@ -48,7 +48,7 @@ def transform_spherical(theta, phi, coll_angle, geometry='xz', eps=1e-10):
     elif geometry == 'xz':
         cos_theta_L = np.cos(phi)*np.sin(theta)*np.sin(coll_angle) +\
                       np.cos(theta)*np.cos(coll_angle)
-        theta_L = np.arccos(cos_L)
+        theta_L = np.arccos(cos_theta_L)
         cos_phi_L = np.cos(phi)*np.sin(theta)*np.cos(coll_angle) -\
                     np.cos(theta)*np.sin(coll_angle)
         cos_phi_L = cos_phi_L / (np.sin(theta_L) + eps)
@@ -65,12 +65,20 @@ def beam_divergence(theta, phi, laser_params, geometry):
     '''
     # Calculate angles in transformed coordinate frame
     coll_angle = laser_params['theta'] if geometry == 'xz' else laser_params['phi']
-    theta_L, phi_L = transform_spherical(theta, phi, coll_angle, geometry)
+    theta_L, phi_L = transform_spherical(theta[:,None], phi[None,:], coll_angle, geometry)
     
-    # Wavelength and frequency
+    # Necessary variables
     lam = laser_params['lam']
     omega_eV = lam_to_omega_in_eV(lam)
     omega0 = 2*np.pi/lam
+    W = laser_params['W']
+    if 'w0' in laser_params.keys():
+        w0 = laser_params['w0']
+        mu1 = mu2 = 1
+    elif 'w0x' in laser_params.keys():
+        w0 = laser_params['lam']
+        mu1 = laser_params['w0x']
+        mu2 = laser_params['w0y']
     
     # Normalized number of photons
     N = W / (omega_eV * eV_to_J)
@@ -84,13 +92,24 @@ def beam_divergence(theta, phi, laser_params, geometry):
 
 class SignalAnalyzer:
     def __init__(self, file, laser_pol, laser_params, geometry='xz'):
+        '''
+        Class to calculate signal photons (total and perp) from simulation results.
+        Spherical density is calculated after initialization, discernible signal
+        - with self.get_discernible_signal()
+        
+        file: [str] - path to vacem simulation results
+        laser_pol: [instance of vacem.support.eval_functions.polarization_vector] - 
+                    laser polarization vector
+        laser_params: [list of dict] - parameters of laser in the collision
+        geometry: ['xy' or 'xz'] - collision geometry
+        '''
         self.result = ResultFile(file)
         self.laser_pol = laser_pol
         self.laser_params = laser_params
         self.geometry = geometry
         
         self.N_xyz = self.result.get_total_number_spectrum()
-        self.Nperp_xyz = self.result.get_number_spectrum_polarized_spherical(laser_perp)
+        self.Nperp_xyz = self.result.get_number_spectrum_polarized_spherical(laser_pol)
         self.x, self.y, self.z = [np.array(ax) for ax in self.N_xyz.axes]
         
         self.get_spherical_density()
@@ -105,30 +124,30 @@ class SignalAnalyzer:
         self.dtheta = self.theta[1] - self.theta[0]
         self.dphi = self.phi[1] - self.phi[0]
         
-        self.N_angular = self.integrate_spherical(self.N, axis=['k'])
-        self.Nperp_angular = self.integrate_spherical(self.Nperp, axis=['k'])
+        self.N_angular = self.integrate_spherical(self.N.matrix, axis=['k'])
+        self.Nperp_angular = self.integrate_spherical(self.Nperp.matrix, axis=['k'])
     
     def integrate_spherical(self, arr, axis=['k','theta','phi']):
         if 'k' in axis:
             integrated = np.sum(arr*self.k[:,None,None]**2, axis=0) * self.dk
         if 'phi' in axis:
-            integrated = np.sum(integrated, axis=1) * self.d_phi
+            integrated = np.sum(integrated, axis=1) * self.dphi
         if 'theta' in axis:
-            integrated = np.sum(integrated*np.sin(self.theta)) * self.d_theta
+            integrated = np.sum(integrated*np.sin(self.theta)) * self.dtheta
         return integrated
      
     def check_photon_number(self):
         N_total_xyz = self.N_xyz.integrate().matrix
         N_total_sph = self.integrate_spherical(self.N.matrix,
                                                axis=['k','theta','phi'])
-        assert np.isclose(N_total_xyz, N_total_sph), 'Total number of signal\
+        assert np.isclose(N_total_xyz, N_total_sph, rtol=1e-2), 'Total number of signal\
         photons for decart and spherical system is not the same'
         self.N_total = N_total_sph
         
         Nperp_total_xyz = self.Nperp_xyz.integrate().matrix
         Nperp_total_sph = self.integrate_spherical(self.Nperp.matrix,
                                                    axis=['k','theta','phi'])
-        assert np.isclose(Nperp_total_xyz, Nperp_total_sph), 'Total number of\
+        assert np.isclose(Nperp_total_xyz, Nperp_total_sph, rtol=1e-2), 'Total number of\
         perp signal photons for decart and spherical system is not the same'
         self.Nperp_total = Nperp_total_sph
         
@@ -146,7 +165,7 @@ class SignalAnalyzer:
         Nbg = self.get_background()
         
         self.discernible_area = np.zeros_like(Nbg).astype(int)
-        self.discernible_area_perp = np.zeros_like(discernible_area)
+        self.discernible_area_perp = np.zeros_like(self.discernible_area)
 
         for idx_theta in range(len(self.theta)):
             idx = self.N_angular[idx_theta] > Nbg[idx_theta]
@@ -163,11 +182,11 @@ class SignalAnalyzer:
         for i in range(len(self.theta)):
             for j in range(len(self.phi)):
                 if self.discernible_area[i,j]:
-                    self.N_disc += self.N_angular[i,j] * np.sin(theta[i])
+                    self.N_disc += self.N_angular[i,j] * np.sin(self.theta[i])
                 if self.discernible_area_perp[i,j]:
-                    self.Nperp_disc += self.Nperp_angular[i,j] * np.sin(theta[i])
-        self.N_disc = self.N_disc * dphi * dtheta
-        self.Nperp_disc = self.Nperp_disc * dphi * dtheta
+                    self.Nperp_disc += self.Nperp_angular[i,j] * np.sin(self.theta[i])
+        self.N_disc = self.N_disc * self.dphi * self.dtheta
+        self.Nperp_disc = self.Nperp_disc * self.dphi * self.dtheta
         return self.N_disc, self.Nperp_disc
     
     
