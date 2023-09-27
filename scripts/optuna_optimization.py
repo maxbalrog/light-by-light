@@ -19,6 +19,9 @@ __all__ = ['get_trial_params', 'objective_lbl', 'run_optuna_optimization']
 
 
 def get_trial_params(trial, optuna_params, default_params):
+    '''
+    Pick parameters for trial according to their data type and range
+    '''
     params_upd = deepcopy(default_params)
     for laser_key in optuna_params.keys():
         for param_key in optuna_params[laser_key].keys():
@@ -44,6 +47,19 @@ def get_trial_params(trial, optuna_params, default_params):
 def objective_lbl(trial, default_params, optuna_params, save_path, geometry='xz',
                   obj_param='N_total', low_memory_mode=False, n_threads=12,
                   pol_idx=0, eps=1e-10):
+    '''
+    Objective function for optuna optimization.
+    
+    trial: [optuna.trial.Trial] - trial object
+    default_params: [dict] - parameters for simulation including laser and
+                             simbox parameters
+    optuna_params: [dict] - parameters to optimize, each parameter should contrain
+                            [start, end, (step), sampling]. Sampling should be one 
+                            of ['int', 'float', 'uniform', 'loguniform']
+    save_path: [str] - directory to save simulation results
+    obj_param: ['N_total' or 'N_disc'] - quantity to maximize
+    For other parameters check `run_simulation_postprocess()` 
+    '''
     simbox_params = default_params['simbox_params']
     # Pick params for the trial
     params_upd = get_trial_params(trial, optuna_params, default_params['lasers'])
@@ -71,16 +87,20 @@ def run_optuna_optimization(default_yaml, optuna_yaml, save_path, geometry='xz',
                             obj_param='N_total', n_trials=20,
                             low_memory_mode=False, n_threads=12,
                             pol_idx=0, eps=1e-10):
+    # Read yaml files
     default_params = read_yaml(default_yaml)
     optuna_params = read_yaml(optuna_yaml)
     
+    # String formatting for database
     study_name = save_path.split('/')[-2]
     Path(os.path.dirname(save_path)).mkdir(parents=True, exist_ok=True)
     storage_name = f'sqlite:///{save_path}/study.db'
 
+    # Create optuna study
     study = optuna.create_study(direction="maximize", study_name=study_name,
                                 storage=storage_name, load_if_exists=True)
 
+    # Pass necessary arguments to objective function
     obj = partial(objective_lbl,
                   default_params=default_params,
                   optuna_params=optuna_params,
@@ -91,6 +111,7 @@ def run_optuna_optimization(default_yaml, optuna_yaml, save_path, geometry='xz',
                   n_threads=n_threads,
                   pol_idx=pol_idx)
     
+    # Let the optimization begin!
     study.optimize(obj, n_trials=n_trials)
     print('Optuna optimization finished!')
 
