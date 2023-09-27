@@ -7,7 +7,7 @@ import yaml
 import numpy as np
 
 __all__ = ['read_yaml', 'write_yaml', 'decypher_yaml', 'write_generic_yaml',
-           'get_grids_from_dict', 'decypher_yaml_grid']
+           ]
 
 def read_yaml(yaml_file):
     with open(yaml_file, "r") as stream:
@@ -30,41 +30,20 @@ def write_generic_yaml(yaml_file, laser_params, simbox_params, mode='gridscan'):
     data['lasers'] = {f'laser_{i}': param for i,param in enumerate(laser_params)}
     data['simbox_params'] = simbox_params 
     write_yaml(yaml_file, data)
-        
 
-def get_grids_from_dict(data_dict):
+
+def get_grid_from_list(data):
     '''
     It is expected that parameter lists would be of the following type:
         - [start, end, npts]
         - [start, end, npts, scale]
     '''
-    vary = {}
-    for key,value in data_dict.items():
-        if type(value) in [list, tuple]:
-            grid = np.linspace(value[0], value[1], value[2], endpoint=True)
-            if len(value) == 3:
-                vary[key] = grid
-            elif len(value) == 4:
-                # value[3] is scale
-                vary[key] = (grid, value[3])
-    return vary
-
-
-def decypher_yaml_grid(yaml_file):
-    '''
-    Given yaml file with simulation configuration extract all parameters over which 
-    1d grid scan would be performed. See get_grids_from_dict() for the list formatting
-    '''
-    data = read_yaml(yaml_file)
-    simbox_params = data['simbox_params']
-    lasers = data['lasers']
-    laser_params = [params for params in lasers.values()]
-    simbox_vary, lasers_vary = {}, {}
-    
-    for key in simbox_params.keys():
-        simbox_vary[key] = get_grids_from_dict(simbox_params[key])
-    for key in lasers.keys():
-        lasers_vary[key] = get_grids_from_dict(lasers[key])
-    return (lasers_vary, simbox_vary), (laser_params, simbox_params)
+    start, end, npts = data[:3]
+    step = (end - start) / (npts - 1)
+    grid = np.linspace(start, end, npts, endpoint=True)
+    if np.isclose(step, int(np.round(step))):
+        grid = grid.astype(int)
+    result = grid if len(data) == 3 else (grid, data[3])
+    return result
         
     
