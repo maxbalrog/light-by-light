@@ -27,8 +27,8 @@ def get_grids_from_dict(data_dict):
     vary = {}
     for key,value in data_dict.items():
         if type(value) in [list, tuple]:
-            n_steps = int((value[1]-value[0])/value[2]) + 1
-            vary[key] = np.linspace(value[0], value[1], n_steps, endpoint=True)
+            # n_steps = int((value[1]-value[0])/value[2]) + 1
+            vary[key] = np.linspace(value[0], value[1], value[2], endpoint=True)
     return vary
 
 
