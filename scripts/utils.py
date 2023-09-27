@@ -51,6 +51,10 @@ def get_grids_from_dict(data_dict):
 
 
 def decypher_yaml_grid(yaml_file):
+    '''
+    Given yaml file with simulation configuration extract all parameters over which 
+    1d grid scan would be performed. See get_grids_from_dict() for the list formatting
+    '''
     data = read_yaml(yaml_file)
     simbox_params = data['simbox_params']
     lasers = data['lasers']

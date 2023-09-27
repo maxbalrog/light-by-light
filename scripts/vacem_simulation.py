@@ -45,21 +45,29 @@ def check_grids(lasers_vary, simbox_vary):
 def run_gridscan_simbox(simbox_vary, simbox_params, n_simbox_vary, laser_params,
                         save_path, geometry='xz', low_memory_mode=False,
                         n_threads=12, pol_idx=0, eps=1e-10):
+    '''
+    1D gridscan for simulation box parameters
+    '''
+    # Determine which parameter to vary
     idx = np.argmax(np.array(n_simbox_vary))
     simbox_key = list(simbox_vary.keys())[idx]
-
+    
+    # Extract grid and iterate over it
     param_key, param_grid = list(simbox_vary[simbox_key].items())[0]
     save_path = f'{os.path.dirname(save_path)}/{simbox_key}_{param_key}/'
     for param_value in param_grid:
         simbox_params[simbox_key][param_key] = param_value
+        # Save path formatting
         if type(param_value) is int:
             save_folder = '{}{}_{}/'.format(save_path, param_key, param_value)
         else:
             save_folder = '{}{}_{:.1f}/'.format(save_path, param_key, param_value)
-
+        
+        # Simulation
         run_simulation(laser_params, save_folder, simbox_params,
                        geometry, low_memory_mode, n_threads)
-
+        
+        # Simulation result postprocessing (eps for stability)
         theta = laser_params[pol_idx]['theta'] + eps
         phi = laser_params[pol_idx]['phi'] + eps
         beta = laser_params[pol_idx]['beta']
@@ -75,24 +83,36 @@ def run_gridscan_simbox(simbox_vary, simbox_params, n_simbox_vary, laser_params,
 def run_gridscan_laser(lasers_vary, laser_params, n_lasers_vary, simbox_params,
                        save_path, geometry='xz', low_memory_mode=False,
                        n_threads=12, pol_idx=0, eps=1e-10):
+    '''
+    1D gridscan for laser parameters
+    '''
+    # Determine which parameter to vary
     idx = np.argmax(np.array(n_lasers_vary))
     laser_key = list(lasers_vary.keys())[idx]
 
+    # Extract grid and scale
+    # With laser pulse parameters we can introduce scale since spatio-temporal scales
+    # are small, e.g. tau ~ 20 fs. The grid is formed with dimensionless parameters and
+    # multiplied later by scale
     scale = 1
     param_key, param_grid = list(lasers_vary[laser_key].items())[0]
     if type(param_grid) in [list, tuple]:
         scale = param_grid[1]
         param_grid = param_grid[0]
-        
+    
     save_path = f'{os.path.dirname(save_path)}/laser_{idx}_{param_key}/'
+    # Iterate over grid
     for param_value in param_grid:
         save_folder = '{}{}_{:.1f}/'.format(save_path, param_key, param_value)
+        # Scale laser parameter
         laser_params[idx][param_key] = param_value * scale
         laser_params[idx]['E0'] = W_to_E0(laser_params[idx])
-
+        
+        # Simulation
         run_simulation(laser_params, save_folder, simbox_params,
                        geometry, low_memory_mode, n_threads)
-
+        
+        # Simulation result postprocessing (eps for stability)
         theta = laser_params[pol_idx]['theta'] + eps
         phi = laser_params[pol_idx]['phi'] + eps
         beta = laser_params[pol_idx]['beta']
@@ -107,6 +127,15 @@ def run_gridscan_laser(lasers_vary, laser_params, n_lasers_vary, simbox_params,
 
 def run_gridscan(yaml_file, save_path, geometry='xz',
                  low_memory_mode=False, n_threads=12):
+    '''
+    Using yaml file, determine variable parameter and perform 1d grid scan over it.
+    Variable parameter could be found either in laser parameters or simbox parameters 
+    (for benchmarking purposes).
+    
+    yaml_file: [str] - path to yaml file
+    save_path: [str] - directory where simulation results would be saved
+    geometry, low_memory_mode, n_threads - params for run_simulation()
+    '''
     (lasers_vary, simbox_vary), (laser_params, simbox_params) = decypher_yaml_grid(yaml_file)
     n_lasers_vary, n_simbox_vary = check_grids(lasers_vary, simbox_vary)
     
