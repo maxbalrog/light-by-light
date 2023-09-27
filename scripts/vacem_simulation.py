@@ -13,7 +13,7 @@ from scripts.vacem_ini import W_to_E0, create_ini_file
 from scripts.utils import read_yaml, get_grid_from_list
 from scripts.postprocess import SignalAnalyzer
 
-__all__ = ['run_simulation', 'run_gridscan']
+__all__ = ['run_simulation', 'run_simulation_postprocess', 'run_gridscan']
 
 vacem_path = '/home/wi73yus/packages/vacem-master/scripts/vacem_solver.py'
 
@@ -30,7 +30,35 @@ def run_simulation(laser_params, save_path, simbox_params,
     
     # Run vacem script
     os.system(f'{vacem_path} --output {save_path} --threads {n_threads} load_ini {vacem_ini}')
-    return 0
+    return 1
+
+
+def run_simulation_postprocess(laser_params, save_path, simbox_params,
+                               geometry='xz', low_memory_mode=False, n_threads=12,
+                               pol_idx=0, eps=1e-10):
+    # Make sure the directory exists
+    Path(os.path.dirname(save_path)).mkdir(parents=True, exist_ok=True)
+    
+    # Create .ini file
+    create_ini_file(laser_params, save_path, simbox_params,
+                    geometry, low_memory_mode)
+    vacem_ini = f'{save_path}/vacem.ini'
+    
+    # Run vacem script
+    os.system(f'{vacem_path} --output {save_path} --threads {n_threads} load_ini {vacem_ini}')
+    
+    # Simulation result postprocessing (eps for stability)
+    theta = laser_params[pol_idx]['theta'] + eps
+    phi = laser_params[pol_idx]['phi'] + eps
+    beta = laser_params[pol_idx]['beta']
+    laser_pol = polarization_vector(theta/180*np.pi,
+                                    phi/180*np.pi,
+                                    beta/180*np.pi)
+    vacem_file = f'{os.path.dirname(save_path)}/_vacem.npz'
+    signal_analyzer = SignalAnalyzer(vacem_file, laser_pol, laser_params, geometry)
+    signal_analyzer.get_discernible_signal()
+    signal_analyzer.save_data(save_path)
+    return 1
 
 
 def run_gridscan(default_yaml, vary_yaml, save_path, geometry='xz',
@@ -86,20 +114,9 @@ def run_gridscan(default_yaml, vary_yaml, save_path, geometry='xz',
         simbox_params = default_params['simbox_params']
         
         # Simulation
-        run_simulation(laser_params, save_folder, simbox_params,
-                       geometry, low_memory_mode, n_threads)
-        
-        # Simulation result postprocessing (eps for stability)
-        theta = laser_params[pol_idx]['theta'] + eps
-        phi = laser_params[pol_idx]['phi'] + eps
-        beta = laser_params[pol_idx]['beta']
-        laser_pol = polarization_vector(theta/180*np.pi,
-                                        phi/180*np.pi,
-                                        beta/180*np.pi)
-        vacem_file = f'{os.path.dirname(save_folder)}/_vacem.npz'
-        signal_analyzer = SignalAnalyzer(vacem_file, laser_pol, laser_params, geometry)
-        signal_analyzer.get_discernible_signal()
-        signal_analyzer.save_data(save_folder)
+        run_simulation_postprocess(laser_params, save_folder, simbox_params,
+                                   geometry, low_memory_mode, n_threads,
+                                   pol_idx, eps)
     print('Grid simulation finished!')
     
     
