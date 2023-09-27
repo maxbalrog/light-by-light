@@ -6,7 +6,8 @@ Author: Maksim Valialshchikov, @maxbalrog (github)
 import yaml
 import numpy as np
 
-__all__ = ['read_yaml', 'write_yaml', 'decypher_yaml']
+__all__ = ['read_yaml', 'write_yaml', 'decypher_yaml', 'write_generic_yaml',
+           'get_grids_from_dict', 'decypher_yaml_grid']
 
 def read_yaml(yaml_file):
     with open(yaml_file, "r") as stream:
@@ -23,29 +24,43 @@ def write_yaml(yaml_file, data):
         yaml.dump(data, outfile, default_flow_style=False)
         
 
+def write_generic_yaml(yaml_file, laser_params, simbox_params, mode='gridscan'):
+    data = {}
+    data['_mode'] = mode
+    data['lasers'] = {f'laser_{i}': param for i,param in enumerate(laser_params)}
+    data['simbox_params'] = simbox_params 
+    write_yaml(yaml_file, data)
+        
+
 def get_grids_from_dict(data_dict):
+    '''
+    It is expected that parameter lists would be of the following type:
+        - [start, end, npts]
+        - [start, end, npts, scale]
+    '''
     vary = {}
     for key,value in data_dict.items():
         if type(value) in [list, tuple]:
-            # n_steps = int((value[1]-value[0])/value[2]) + 1
-            vary[key] = np.linspace(value[0], value[1], value[2], endpoint=True)
+            grid = np.linspace(value[0], value[1], value[2], endpoint=True)
+            if len(value) == 3:
+                vary[key] = grid
+            elif len(value) == 4:
+                # value[3] is scale
+                vary[key] = (grid, value[3])
     return vary
 
 
-def decypher_yaml(yaml_file):
+def decypher_yaml_grid(yaml_file):
     data = read_yaml(yaml_file)
-    factors = data['factors']
-    resolutions = data['resolutions']
+    simbox_params = data['simbox_params']
     lasers = data['lasers']
     laser_params = [params for params in lasers.values()]
-    params_to_vary = {'factors': {},
-                      'resolutions': {},
-                      'lasers': {}}
+    simbox_vary, lasers_vary = {}, {}
     
-    params_to_vary['factors'] = get_grids_from_dict(factors)
-    params_to_vary['resolutions'] = get_grids_from_dict(resolutions)
-    for laser_key in lasers.keys():
-        params_to_vary['lasers'][laser_key] = get_grids_from_dict(lasers[laser_key])
-    return params_to_vary, (laser_params, factors, resolutions)
+    for key in simbox_params.keys():
+        simbox_vary[key] = get_grids_from_dict(simbox_params[key])
+    for key in lasers.keys():
+        lasers_vary[key] = get_grids_from_dict(lasers[key])
+    return (lasers_vary, simbox_vary), (laser_params, simbox_params)
         
     

@@ -141,15 +141,17 @@ class SignalAnalyzer:
         N_total_xyz = self.N_xyz.integrate().matrix
         N_total_sph = self.integrate_spherical(self.N.matrix,
                                                axis=['k','theta','phi'])
-        assert np.isclose(N_total_xyz, N_total_sph, rtol=1e-2), 'Total number of signal\
-        photons for decart and spherical system is not the same'
+        assert np.isclose(N_total_xyz, N_total_sph, rtol=1e-2), f'Total number of signal\
+        photons for decart and spherical system is not the same:\n N_xyz - {N_total_xyz}\n\
+        N_sph = {N_total_sph}'
         self.N_total = N_total_sph
         
         Nperp_total_xyz = self.Nperp_xyz.integrate().matrix
         Nperp_total_sph = self.integrate_spherical(self.Nperp.matrix,
                                                    axis=['k','theta','phi'])
-        assert np.isclose(Nperp_total_xyz, Nperp_total_sph, rtol=1e-2), 'Total number of\
-        perp signal photons for decart and spherical system is not the same'
+        assert np.isclose(Nperp_total_xyz, Nperp_total_sph, rtol=1e-2), f'Total number of\
+        perp signal photons for decart and spherical system is not the same:\n\
+        N_xyz - {N_total_xyz}\n N_sph = {N_total_sph}'
         self.Nperp_total = Nperp_total_sph
         
     def get_background(self):

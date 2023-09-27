@@ -197,23 +197,27 @@ def create_geometry(tau, w0, factors, geometry):
     return np.array(list(L.values()))
 
 
-def create_ini_file(laser_params, save_path, factors, resolutions,
+def create_ini_file(laser_params, save_path, simbox_params,
                     geometry='xz', low_memory_mode=False):
     '''
     Create .ini file for vacem given laser parameters
     
     laser_params: [list of dict] - parameters of all laser pulses
     save_path: [str] - directory where .ini and .yaml files would be stored
-    factors: [dict] - factors determining the size of simulation box
-                      e.g., {'long': 10, 'trans': 5, 't': 2}
-    resolutions: [dict] - spatial and temporal resolutions, default is 1
-                          e.g., {'spatial': 2, 't': 1}
+    simbox_params: [dict] - consists of two dictionaries
+        box_factors: [dict] - factors determining the size of simulation box
+                          e.g., {'long': 10, 'trans': 5, 't': 2}
+        resolutions: [dict] - spatial and temporal resolutions, default is 1
+                              e.g., {'spatial': 2, 't': 1}
     geometry: [str] - spatial geometry, combination of 'x', 'y', 'z', e.g., 'xz'
     low_memory_mode: [bool] - parameter for vacem
     '''
     # Extract information from parameters of laser pulses
     n_lasers = len(laser_params)
     tau, w0, lam = get_minmax_params(laser_params)
+    # Information about simulation box
+    box_factors = simbox_params['box_factors']
+    resolutions = simbox_params['resolutions']
     
     # Create list of lasers
     laser_def = dict(phi0=0.0, x_foc=0.0, y_foc=0.0, z_foc=0.0, t_foc=0.0,
@@ -223,18 +227,18 @@ def create_ini_file(laser_params, save_path, factors, resolutions,
     ]
     
     # Determine time grid
-    t_start, t_end = -factors['t']*tau, factors['t']*tau
+    t_start, t_end = -box_factors['t']*tau, box_factors['t']*tau
     t_steps = get_t_steps(t_start, t_end, lam, resolutions['t'])
     
     # Determine spatial grid
-    L = create_geometry(tau, w0, factors, geometry)
+    L = create_geometry(tau, w0, box_factors, geometry)
     N = get_spatial_steps(laser_list, L/2, resolutions['spatial'])
     
     # Save some simulation parameters to yaml
     yaml_file = f'{os.path.dirname(save_path)}/simulation_box.yml'
-    data = {'box_size_factors': factors,
-            'resolutions': resolutions}
-    write_yaml(yaml_file, data)
+    write_yaml(yaml_file, simbox_params)
+    yaml_file = f'{os.path.dirname(save_path)}/laser_params.yml'
+    write_yaml(yaml_file, laser_params)
     
     # Create and save vacem.ini file
     template = template_ini.format(Nx=N[0], Ny=N[1], Nz=N[2],
