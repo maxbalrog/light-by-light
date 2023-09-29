@@ -20,26 +20,27 @@ __all__ = ['get_trial_params', 'objective_lbl', 'run_optuna_optimization']
 
 def get_trial_params(trial, optuna_params, default_params):
     '''
-    Pick parameters for trial according to their data type and range
+    Pick parameters for trial according to their data type and range.
+    Param should contain following info:
+    [start, end, (scale), sampling_type]
     '''
     params_upd = deepcopy(default_params)
     for laser_key in optuna_params.keys():
         for param_key in optuna_params[laser_key].keys():
             param = optuna_params[laser_key][param_key]
             param_name = f'{laser_key}/{param_key}'
+            scale = 1 if len(param) == 3 else param[2]
             if param[-1] == 'int':
-                step = param[2] if len(param) > 3 else None
-                value = trial.suggest_int(param_name, param[0], param[1],
-                                          step=step)
+                # step = param[2] if len(param) > 3 else None
+                value = trial.suggest_int(param_name, param[0], param[1])
             elif param[-1] == 'float':
-                step = param[2] if len(param) > 3 else None
-                value = trial.suggest_float(param_name, param[0], param[1],
-                                            step=step)
+                # step = param[2] if len(param) > 3 else None
+                value = trial.suggest_float(param_name, param[0], param[1])
             elif param[-1] == 'uniform':
                 value = trial.suggest_uniform(param_name, param[0], param[1])
             elif param[-1] == 'loguniform':
                 value = trial.suggest_float(param_name, param[0], param[1], log=True)
-            params_upd[laser_key][param_key] = value
+            params_upd[laser_key][param_key] = float(value * scale)
         params_upd[laser_key]['E0'] = float(W_to_E0(params_upd[laser_key]))
     return params_upd
 
@@ -83,13 +84,22 @@ def objective_lbl(trial, default_params, optuna_params, save_path, geometry='xz'
     return float(result[obj_param])
     
 
-def run_optuna_optimization(default_yaml, optuna_yaml, save_path, geometry='xz',
-                            obj_param='N_total', n_trials=20,
-                            low_memory_mode=False, n_threads=12,
-                            pol_idx=0, eps=1e-10):
+# def run_optuna_optimization(default_yaml, optuna_yaml, save_path, geometry='xz',
+#                             obj_param='N_total', n_trials=20,
+#                             low_memory_mode=False, n_threads=12,
+#                             pol_idx=0, eps=1e-10):
+def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10):
     # Read yaml files
     default_params = read_yaml(default_yaml)
     optuna_params = read_yaml(optuna_yaml)
+    
+    # Define simulation parameters
+    geometry = default_params['geometry']
+    low_memory_mode = default_params['low_memory_mode']
+    n_threads = default_params['n_threads']
+    pol_idx = default_params['pol_idx']
+    obj_param = default_params['obj_param']
+    n_trials = default_params['n_trials']
     
     # String formatting for database
     study_name = save_path.split('/')[-2]
