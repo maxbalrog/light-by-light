@@ -11,7 +11,7 @@ from pathlib import Path
 import os
 import yaml
 
-from scripts.utils import write_yaml
+from light_by_light.utils import write_yaml
 
 __all__ = ['template_ini', 'template_laser', 'template_laser_ell',
            'W_to_E0', 'kmax_grid', 'get_spatial_steps', 'get_t_steps',
@@ -235,10 +235,10 @@ def create_ini_file(laser_params, save_path, simbox_params,
     N = get_spatial_steps(laser_list, L/2, resolutions['spatial'])
     
     # Save some simulation parameters to yaml
-    yaml_file = f'{os.path.dirname(save_path)}/simulation_box.yml'
-    write_yaml(yaml_file, simbox_params)
-    yaml_file = f'{os.path.dirname(save_path)}/laser_params.yml'
-    write_yaml(yaml_file, laser_params)
+    laser_data = {f'laser_{i}': params for i,params in enumerate(laser_params)}
+    data = {'lasers': laser_data, 'simbox_params': simbox_params}
+    yaml_file = f'{os.path.dirname(save_path)}/laser_simbox_params.yml'
+    write_yaml(yaml_file, data)
     
     # Create and save vacem.ini file
     template = template_ini.format(Nx=N[0], Ny=N[1], Nz=N[2],

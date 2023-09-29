@@ -11,9 +11,9 @@ import os
 from pathlib import Path
 from functools import partial
 
-from scripts.vacem_ini import W_to_E0
-from scripts.vacem_simulation import run_simulation_postprocess
-from scripts.utils import read_yaml
+from light_by_light.vacem_ini import W_to_E0
+from light_by_light.vacem_simulation import run_simulation_postprocess
+from light_by_light.utils import read_yaml
 
 __all__ = ['get_trial_params', 'objective_lbl', 'run_optuna_optimization']
 

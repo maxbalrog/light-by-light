@@ -9,9 +9,9 @@ import numpy as np
 
 from vacem.support.eval_functions import polarization_vector
 
-from scripts.vacem_ini import W_to_E0, create_ini_file
-from scripts.utils import read_yaml, get_grid_from_list
-from scripts.postprocess import SignalAnalyzer
+from light_by_light.vacem_ini import W_to_E0, create_ini_file
+from light_by_light.utils import read_yaml, get_grid_from_list
+from light_by_light.postprocess import SignalAnalyzer
 
 __all__ = ['run_simulation', 'run_simulation_postprocess', 'run_gridscan']
 
@@ -61,8 +61,7 @@ def run_simulation_postprocess(laser_params, save_path, simbox_params,
     return 1
 
 
-def run_gridscan(default_yaml, vary_yaml, save_path, geometry='xz',
-                 low_memory_mode=False, n_threads=12, pol_idx=0, eps=1e-10):
+def run_gridscan(default_yaml, vary_yaml, save_path, eps=1e-10):
     '''
     Using vary_yaml file, determine variable parameter and perform 1D grid scan over it.
     Variable parameter could be found either in laser parameters or simbox parameters 
@@ -79,6 +78,12 @@ def run_gridscan(default_yaml, vary_yaml, save_path, geometry='xz',
     '''
     default_params = read_yaml(default_yaml)
     params_vary = read_yaml(vary_yaml)
+    
+    # Define simulation parameters
+    geometry = default_params['geometry']
+    low_memory_mode = default_params['low_memory_mode']
+    n_threads = default_params['n_threads']
+    pol_idx = default_params['pol_idx']
     
     # Determine which parameter to vary
     key = list(params_vary.keys())[0]
