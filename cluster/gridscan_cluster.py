@@ -3,6 +3,7 @@ Gridscan script for launching on cluster
 
 Author: Maksim Valialshchikov, @maxbalrog (github)
 '''
+from light_by_light.vacem_simulation import run_gridscan
 
 default_name = 'default_params.yml'
 vary_name = 'vary_params.yml'
@@ -16,7 +17,6 @@ def main(save_path):
 
 
 if __name__ == '__main__':
-    from scripts.vacem_simulation import run_gridscan
     import argparse
     
     parser = argparse.ArgumentParser(description='Gridscan specifications')

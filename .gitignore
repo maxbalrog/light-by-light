@@ -6,3 +6,6 @@ test*
 */__pycache__/*
 fftw*
 *.yml
+light_by_light.egg_info
+light_by_light.egg_info/*
+light_by_light.egg-info/

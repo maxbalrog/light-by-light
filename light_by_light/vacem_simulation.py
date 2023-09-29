@@ -110,7 +110,7 @@ def run_gridscan(default_yaml, vary_yaml, save_path, eps=1e-10):
             save_folder = '{}{}_{:.1f}/'.format(save_path, param_key, param_value)
             
         # Scale laser parameter
-        default_params[key][section_key][param_key] = param_value * scale
+        default_params[key][section_key][param_key] = float(param_value * scale)
         if key == 'lasers':
             default_params[key][section_key]['E0'] = float(W_to_E0(default_params[key][section_key]))
 
