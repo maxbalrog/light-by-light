@@ -9,3 +9,4 @@ fftw*
 light_by_light.egg_info
 light_by_light.egg_info/*
 light_by_light.egg-info/
+bash_scripts/
