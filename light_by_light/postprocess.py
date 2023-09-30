@@ -13,6 +13,8 @@ import os
 from vacem.support.resultfile import ResultFile
 from vacem.support.eval_functions import field_to_spherical
 
+from light_by_light.laser_test_class import laser_test
+
 __all__ = ['lam_to_omega_in_eV', 'transform_spherical', 'beam_divergence',
            'SignalAnalyzer']
 
@@ -78,8 +80,8 @@ def beam_divergence(theta, phi, laser_params, geometry):
         mu1 = mu2 = 1
     elif 'w0x' in laser_params.keys():
         w0 = laser_params['lam']
-        mu1 = laser_params['w0x']
-        mu2 = laser_params['w0y']
+        mu1 = laser_params['w0x'] / w0
+        mu2 = laser_params['w0y'] / w0
     
     # Normalized number of photons
     N = W / (omega_eV * eV_to_J)
@@ -116,6 +118,11 @@ class SignalAnalyzer:
         self.get_spherical_density()
         
         self.check_photon_number()
+        
+        # Laser diagnostics for numerical background
+        ini_file = f'{os.path.dirname(file)}/vacem.ini'
+        self.laser_diagnostics = laser_test(ini_file)
+        self.energy_num = self.laser_diagnostics.energy()
         
     def get_spherical_density(self):
         self.N = field_to_spherical(self.N_xyz, preserve_integral=False)
@@ -164,33 +171,79 @@ class SignalAnalyzer:
             self.background_lasers.append(background_)
         return self.background
     
-    def get_discernible_area(self):
-        Nbg = self.get_background()
+    def get_background_num(self):
+        self.background_num = self.laser_diagnostics.photon_number_density().matrix
+        return self.background_num
+    
+#     def get_discernible_area(self): 
+#         Nbg = self.get_background()
         
-        self.discernible_area = np.zeros_like(Nbg).astype(int)
-        self.discernible_area_perp = np.zeros_like(self.discernible_area)
+#         self.discernible_area = np.zeros_like(Nbg).astype(int)
+#         self.discernible_area_perp = np.zeros_like(self.discernible_area)
+
+#         for idx_theta in range(len(self.theta)):
+#             idx = self.N_angular[idx_theta] > Nbg[idx_theta]
+#             self.discernible_area[idx_theta,idx] = 1
+#             idx = self.Nperp_angular[idx_theta] > self.pol_purity*Nbg[idx_theta]
+#             self.discernible_area_perp[idx_theta,idx] = 1
+#         return self.discernible_area, self.discernible_area_perp
+    def get_discernible_area(self, Nbg=None):
+        if Nbg is None:
+            Nbg = self.get_background()
+        
+        discernible_area, discernible_area_perp = [np.zeros_like(Nbg).astype(int) for i in range(2)]
 
         for idx_theta in range(len(self.theta)):
             idx = self.N_angular[idx_theta] > Nbg[idx_theta]
-            self.discernible_area[idx_theta,idx] = 1
+            discernible_area[idx_theta,idx] = 1
             idx = self.Nperp_angular[idx_theta] > self.pol_purity*Nbg[idx_theta]
-            self.discernible_area_perp[idx_theta,idx] = 1
-        return self.discernible_area, self.discernible_area_perp
+            discernible_area_perp[idx_theta,idx] = 1
+        return discernible_area, discernible_area_perp
     
-    def get_discernible_signal(self, pol_purity=1e-10):
-        self.pol_purity = pol_purity
-        self.get_discernible_area()
+#     def get_discernible_signal(self, pol_purity=1e-10):
+#         self.pol_purity = pol_purity
+#         area = self.get_discernible_area()
+#         discernible_area, discernible_area_perp = area
         
-        self.N_disc, self.Nperp_disc = 0, 0
+#         self.N_disc, self.Nperp_disc = 0, 0
+#         for i in range(len(self.theta)):
+#             for j in range(len(self.phi)):
+#                 if self.discernible_area[i,j]:
+#                     self.N_disc += self.N_angular[i,j] * np.sin(self.theta[i])
+#                 if self.discernible_area_perp[i,j]:
+#                     self.Nperp_disc += self.Nperp_angular[i,j] * np.sin(self.theta[i])
+#         self.N_disc = self.N_disc * self.dphi * self.dtheta
+#         self.Nperp_disc = self.Nperp_disc * self.dphi * self.dtheta
+#         return self.N_disc, self.Nperp_disc
+
+    def _get_discernible_signal(self, discernible_area, discernible_area_perp):      
+        N_disc, Nperp_disc = 0, 0
         for i in range(len(self.theta)):
             for j in range(len(self.phi)):
-                if self.discernible_area[i,j]:
-                    self.N_disc += self.N_angular[i,j] * np.sin(self.theta[i])
-                if self.discernible_area_perp[i,j]:
-                    self.Nperp_disc += self.Nperp_angular[i,j] * np.sin(self.theta[i])
-        self.N_disc = self.N_disc * self.dphi * self.dtheta
-        self.Nperp_disc = self.Nperp_disc * self.dphi * self.dtheta
-        return self.N_disc, self.Nperp_disc
+                if discernible_area[i,j]:
+                    N_disc += self.N_angular[i,j] * np.sin(self.theta[i])
+                if discernible_area_perp[i,j]:
+                    Nperp_disc += self.Nperp_angular[i,j] * np.sin(self.theta[i])
+        N_disc = N_disc * self.dphi * self.dtheta
+        Nperp_disc = Nperp_disc * self.dphi * self.dtheta
+        return N_disc, Nperp_disc
+    
+    def get_discernible_signal(self, pol_purity=1e-10):
+        # Background could be calculated either with analytical formula or 
+        # numerically. _num stands for numerically calculated values. In future
+        # one should choose one method and stick to it.
+        self.pol_purity = pol_purity
+        
+        Nbg = self.get_background()
+        Nbg_num = self.get_background_num()
+        
+        areas = self.get_discernible_area(Nbg)
+        self.discernible_area, self.discernible_area_perp = areas
+        areas_num = self.get_discernible_area(Nbg_num)
+        self.discernible_area_num, self.discernible_area_perp_num = areas_num
+        
+        self.N_disc, self.Nperp_disc = self._get_discernible_signal(*areas)
+        self.N_disc_num, self.Nperp_disc_num = self._get_discernible_signal(*areas_num)
     
     def save_data(self, save_path):
         Path(f'{os.path.dirname(save_path)}').mkdir(parents=True, exist_ok=True)
@@ -207,6 +260,11 @@ class SignalAnalyzer:
             'Nperp_total': self.Nperp_total,
             'N_disc': self.N_disc,
             'Nperp_disc': self.Nperp_disc,
+            'background_num': self.background_num,
+            'discernible_area_num': self.discernible_area_num,
+            'discernible_area_perp_num': self.discernible_area_perp_num,
+            'N_disc_num': self.N_disc_num,
+            'Nperp_disc_num': self.Nperp_disc_num,
         }
         np.savez(file, **data)
     

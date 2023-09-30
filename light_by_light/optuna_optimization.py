@@ -84,10 +84,6 @@ def objective_lbl(trial, default_params, optuna_params, save_path, geometry='xz'
     return float(result[obj_param])
     
 
-# def run_optuna_optimization(default_yaml, optuna_yaml, save_path, geometry='xz',
-#                             obj_param='N_total', n_trials=20,
-#                             low_memory_mode=False, n_threads=12,
-#                             pol_idx=0, eps=1e-10):
 def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10):
     # Read yaml files
     default_params = read_yaml(default_yaml)
