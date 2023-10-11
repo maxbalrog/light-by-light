@@ -99,11 +99,17 @@ def run_gridscan(default_yaml, vary_yaml, save_path, eps=1e-10):
     if type(param_grid) in [list, tuple]:
         scale = param_grid[1]
         param_grid = param_grid[0]
+    # Poor way to introduce energy scan with fixed total energy budget for two pulses
+    if param_key == 'W':
+        n_lasers = len(default_params['lasers'].keys())
+        W_total = sum([default_params['lasers'][f'laser_{i}']['W'] for i in range(n_lasers)])
+        idx = 1 - int(section_key.split('_')[-1])
+        other_laser = f'laser_{idx}'
     
     save_path = f'{os.path.dirname(save_path)}/{section_key}_{param_key}/'
     # Iterate over grid
     for param_value in param_grid:
-        # Fromat save path
+        # Format save path
         if isinstance(param_value, np.int64):
             save_folder = '{}{}_{}/'.format(save_path, param_key, param_value)
         else:
@@ -113,6 +119,10 @@ def run_gridscan(default_yaml, vary_yaml, save_path, eps=1e-10):
         default_params[key][section_key][param_key] = float(param_value * scale)
         if key == 'lasers':
             default_params[key][section_key]['E0'] = float(W_to_E0(default_params[key][section_key]))
+        # Poor way to introduce energy scan with fixed total energy budget for two pulses
+        if param_key == 'W':
+            default_params[key][other_laser][param_key] = float(W_total - param_value * scale)
+            default_params[key][other_laser]['E0'] = float(W_to_E0(default_params[key][other_laser]))
 
         # Extract needed parameters for simulation script
         laser_params = [default_params['lasers'][key] for key in default_params['lasers'].keys()]

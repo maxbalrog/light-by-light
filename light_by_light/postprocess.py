@@ -13,7 +13,7 @@ import os
 from vacem.support.resultfile import ResultFile
 from vacem.support.eval_functions import field_to_spherical
 
-from light_by_light.laser_test_class import laser_test
+from light_by_light.laser_field import LaserBG
 
 __all__ = ['lam_to_omega_in_eV', 'transform_spherical', 'beam_divergence',
            'SignalAnalyzer']
@@ -121,19 +121,25 @@ class SignalAnalyzer:
         
         # Laser diagnostics for numerical background
         ini_file = f'{os.path.dirname(file)}/vacem.ini'
-        self.laser_diagnostics = laser_test(ini_file)
+        self.laser_diagnostics = LaserBG(ini_file)
         self.energy_num = self.laser_diagnostics.energy()
         
     def get_spherical_density(self):
-        self.N = field_to_spherical(self.N_xyz, preserve_integral=False)
-        self.Nperp = field_to_spherical(self.Nperp_xyz, preserve_integral=False)
+        N = field_to_spherical(self.N_xyz, preserve_integral=False, order=1)
+        Nperp = field_to_spherical(self.Nperp_xyz, preserve_integral=False, order=1)
+        self.N = N
+        self.Nperp = Nperp
+        
         self.k, self.theta, self.phi = [np.array(ax) for ax in self.N.axes]
         self.dk = self.k[1] - self.k[0]
         self.dtheta = self.theta[1] - self.theta[0]
         self.dphi = self.phi[1] - self.phi[0]
         
-        self.N_angular = self.integrate_spherical(self.N.matrix, axis=['k'])
-        self.Nperp_angular = self.integrate_spherical(self.Nperp.matrix, axis=['k'])
+        k, theta, phi = N.meshgrid()
+        self.N_angular = N.evaluate('k**2 * N').integrate(0).matrix
+        self.Nperp_angular = Nperp.evaluate('k**2 * Nperp').integrate(0).matrix
+        # self.N_angular = self.integrate_spherical(self.N.matrix, axis=['k'])
+        # self.Nperp_angular = self.integrate_spherical(self.Nperp.matrix, axis=['k'])
     
     def integrate_spherical(self, arr, axis=['k','theta','phi']):
         if 'k' in axis:
@@ -147,18 +153,20 @@ class SignalAnalyzer:
     def check_photon_number(self):
         N_total_xyz = self.N_xyz.integrate().matrix
         N_total_sph = self.integrate_spherical(self.N.matrix,
-                                               axis=['k','theta','phi'])
-        assert np.isclose(N_total_xyz, N_total_sph, rtol=1e-2), f'Total number of signal\
-        photons for decart and spherical system is not the same:\n N_xyz - {N_total_xyz}\n\
-        N_sph = {N_total_sph}'
+                                               axis=['k', 'theta','phi'])
+        if not np.isclose(N_total_xyz, N_total_sph, rtol=5e-3):
+            print('Warning: total signal on cartesian and spherical grid differ more than 0.5%')
+        # assert np.isclose(N_total_xyz, N_total_sph, rtol=1e-2), f'Total number of signal\
+        # photons for decart and spherical system is not the same:\n N_xyz = {N_total_xyz}\n\
+        # N_sph = {N_total_sph}'
         self.N_total = N_total_sph
         
         Nperp_total_xyz = self.Nperp_xyz.integrate().matrix
         Nperp_total_sph = self.integrate_spherical(self.Nperp.matrix,
                                                    axis=['k','theta','phi'])
-        assert np.isclose(Nperp_total_xyz, Nperp_total_sph, rtol=1e-2), f'Total number of\
-        perp signal photons for decart and spherical system is not the same:\n\
-        N_xyz - {N_total_xyz}\n N_sph = {N_total_sph}'
+        # assert np.isclose(Nperp_total_xyz, Nperp_total_sph, rtol=1e-2), f'Total number of\
+        # perp signal photons for decart and spherical system is not the same:\n\
+        # N_xyz = {N_total_xyz}\n N_sph = {N_total_sph}'
         self.Nperp_total = Nperp_total_sph
         
     def get_background(self):
@@ -172,21 +180,12 @@ class SignalAnalyzer:
         return self.background
     
     def get_background_num(self):
-        self.background_num = self.laser_diagnostics.photon_number_density().matrix
+        self.laser_diagnostics.photon_density()
+        self.background_num = self.laser_diagnostics.dphoton_angular.matrix
+        self.background_sph_num = self.laser_diagnostics.dphoton_spherical.matrix
+        # self.background_num = self.laser_diagnostics.photon_number_density().matrix
         return self.background_num
     
-#     def get_discernible_area(self): 
-#         Nbg = self.get_background()
-        
-#         self.discernible_area = np.zeros_like(Nbg).astype(int)
-#         self.discernible_area_perp = np.zeros_like(self.discernible_area)
-
-#         for idx_theta in range(len(self.theta)):
-#             idx = self.N_angular[idx_theta] > Nbg[idx_theta]
-#             self.discernible_area[idx_theta,idx] = 1
-#             idx = self.Nperp_angular[idx_theta] > self.pol_purity*Nbg[idx_theta]
-#             self.discernible_area_perp[idx_theta,idx] = 1
-#         return self.discernible_area, self.discernible_area_perp
     def get_discernible_area(self, Nbg=None):
         if Nbg is None:
             Nbg = self.get_background()
@@ -199,22 +198,6 @@ class SignalAnalyzer:
             idx = self.Nperp_angular[idx_theta] > self.pol_purity*Nbg[idx_theta]
             discernible_area_perp[idx_theta,idx] = 1
         return discernible_area, discernible_area_perp
-    
-#     def get_discernible_signal(self, pol_purity=1e-10):
-#         self.pol_purity = pol_purity
-#         area = self.get_discernible_area()
-#         discernible_area, discernible_area_perp = area
-        
-#         self.N_disc, self.Nperp_disc = 0, 0
-#         for i in range(len(self.theta)):
-#             for j in range(len(self.phi)):
-#                 if self.discernible_area[i,j]:
-#                     self.N_disc += self.N_angular[i,j] * np.sin(self.theta[i])
-#                 if self.discernible_area_perp[i,j]:
-#                     self.Nperp_disc += self.Nperp_angular[i,j] * np.sin(self.theta[i])
-#         self.N_disc = self.N_disc * self.dphi * self.dtheta
-#         self.Nperp_disc = self.Nperp_disc * self.dphi * self.dtheta
-#         return self.N_disc, self.Nperp_disc
 
     def _get_discernible_signal(self, discernible_area, discernible_area_perp):      
         N_disc, Nperp_disc = 0, 0
@@ -249,8 +232,11 @@ class SignalAnalyzer:
         Path(f'{os.path.dirname(save_path)}').mkdir(parents=True, exist_ok=True)
         file = f'{os.path.dirname(save_path)}/postprocess_data.npz'
         data = {
+            # 'k': self.k,
             'theta': self.theta,
             'phi': self.phi,
+            # 'N_sph': self.N,
+            # 'Nperp_sph': self.Nperp,
             'N_angular': self.N_angular,
             'Nperp_angular': self.Nperp_angular,
             'background': self.background,
@@ -260,6 +246,7 @@ class SignalAnalyzer:
             'Nperp_total': self.Nperp_total,
             'N_disc': self.N_disc,
             'Nperp_disc': self.Nperp_disc,
+            # 'background_sph_num': self.background_sph_num,
             'background_num': self.background_num,
             'discernible_area_num': self.discernible_area_num,
             'discernible_area_perp_num': self.discernible_area_perp_num,

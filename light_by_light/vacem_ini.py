@@ -212,6 +212,9 @@ def create_ini_file(laser_params, save_path, simbox_params,
     geometry: [str] - spatial geometry, combination of 'x', 'y', 'z', e.g., 'xz'
     low_memory_mode: [bool] - parameter for vacem
     '''
+    # Check that folder exists
+    Path(os.path.dirname(save_path)).mkdir(parents=True, exist_ok=True)
+    
     # Extract information from parameters of laser pulses
     n_lasers = len(laser_params)
     tau, w0, lam = get_minmax_params(laser_params)
