@@ -5,11 +5,12 @@ with vacem simulations
 Author: Maksim Valialshchikov, @maxbalrog (github)
 '''
 import numpy as np
-import optuna
 from copy import deepcopy
 import os
 from pathlib import Path
 from functools import partial
+import optuna
+from optuna.storages import JournalStorage, JournalFileStorage
 
 from light_by_light.vacem_ini import W_to_E0
 from light_by_light.vacem_simulation import run_simulation_postprocess
@@ -79,7 +80,8 @@ def objective_lbl(trial, default_params, optuna_params, save_path, geometry='xz'
     
     # Extracting objective function
     result = np.load(f'{os.path.dirname(save_folder)}/postprocess_data.npz')
-    for key in ["N_total", "Nperp_total", "N_disc", "Nperp_disc"]:
+    for key in ["N_total", "Nperp_total", "N_disc", "Nperp_disc",
+                "N_disc_num", "Nperp_disc_num"]:
         trial.set_user_attr(key, float(result[key]))
     return float(result[obj_param])
     
@@ -100,11 +102,15 @@ def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10):
     # String formatting for database
     study_name = save_path.split('/')[-2]
     Path(os.path.dirname(save_path)).mkdir(parents=True, exist_ok=True)
-    storage_name = f'sqlite:///{save_path}/study.db'
+    # storage_name = f'sqlite:///{save_path}/study.db'
+    
+    storage_name = f'{os.path.dirname(save_path)}/study.log'
+    file_storage = optuna.storages.JournalFileStorage(storage_name)
+    storage = optuna.storages.JournalStorage(file_storage)
 
     # Create optuna study
     study = optuna.create_study(direction="maximize", study_name=study_name,
-                                storage=storage_name, load_if_exists=True)
+                                storage=storage, load_if_exists=True)
 
     # Pass necessary arguments to objective function
     obj = partial(objective_lbl,
