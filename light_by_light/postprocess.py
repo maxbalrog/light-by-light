@@ -115,6 +115,9 @@ class SignalAnalyzer:
         self.Nperp_xyz = self.result.get_number_spectrum_polarized_spherical(laser_pol)
         self.x, self.y, self.z = [np.array(ax) for ax in self.N_xyz.axes]
         
+        # res_radius = np.min([ax.max() for ax in [self.x, self.y, self.z]])
+        # self.res_radius = res_radius if fix_res_radius else None
+        
         self.get_spherical_density()
         
         self.check_photon_number()

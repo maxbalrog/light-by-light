@@ -11,6 +11,7 @@ from pathlib import Path
 from functools import partial
 import optuna
 from optuna.storages import JournalStorage, JournalFileStorage
+from optuna.samplers import TPESampler
 
 from light_by_light.vacem_ini import W_to_E0
 from light_by_light.vacem_simulation import run_simulation_postprocess
@@ -86,7 +87,8 @@ def objective_lbl(trial, default_params, optuna_params, save_path, geometry='xz'
     return float(result[obj_param])
     
 
-def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10):
+def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10,
+                            SEED=2323):
     # Read yaml files
     default_params = read_yaml(default_yaml)
     optuna_params = read_yaml(optuna_yaml)
@@ -108,9 +110,14 @@ def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10):
     file_storage = optuna.storages.JournalFileStorage(storage_name)
     storage = optuna.storages.JournalStorage(file_storage)
 
-    # Create optuna study
-    study = optuna.create_study(direction="maximize", study_name=study_name,
-                                storage=storage, load_if_exists=True)
+    # Create optuna study or load if it already exists
+    try:
+        study = optuna.load_study(study_name=study_name, storage=storage)
+    except:
+        sampler = TPESampler(seed=SEED, multivariate=True, n_startup_trials=10)
+        study = optuna.create_study(direction="maximize", study_name=study_name,
+                                    storage=storage, load_if_exists=True,
+                                    sampler=sampler)
 
     # Pass necessary arguments to objective function
     obj = partial(objective_lbl,

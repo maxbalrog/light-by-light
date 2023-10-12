@@ -45,5 +45,26 @@ def get_grid_from_list(data):
         grid = grid.astype(int)
     result = grid if len(data) == 3 else (grid, data[3])
     return result
+
+
+def collect_study_data(study):
+    '''
+    Collect study data (optimization params and user attrs) to one dictionary
+    '''
+    trials = [trial for trial in study.trials if trial.values is not None]
+    n = len(trials)
+    assert n > 0
+    param_keys = list(trials[0].params.keys())
+    user_attr_keys = list(trials[0].user_attrs.keys())
+    keys = param_keys + user_attr_keys
+    data = {key: np.empty(n) for key in keys}
+    # params = {param: np.empty(n) for param in trials[0].params}
+    # user_attrs = {param: np.empty(n) for param in trials[0].user_attrs}
+    for i,trial in enumerate(trials):
+        for key in param_keys:
+            data[key][i] = trial.params[key]
+        for key in user_attr_keys:
+            data[key][i] = trial.user_attrs[key]
+    return data
         
     
