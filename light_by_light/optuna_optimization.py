@@ -33,13 +33,11 @@ def get_trial_params(trial, optuna_params, default_params):
             param_name = f'{laser_key}/{param_key}'
             scale = 1 if len(param) == 3 else param[2]
             if param[-1] == 'int':
-                # step = param[2] if len(param) > 3 else None
                 value = trial.suggest_int(param_name, param[0], param[1])
             elif param[-1] == 'float':
-                # step = param[2] if len(param) > 3 else None
                 value = trial.suggest_float(param_name, param[0], param[1])
             elif param[-1] == 'uniform':
-                value = trial.suggest_uniform(param_name, param[0], param[1])
+                value = trial.suggest_float(param_name, param[0], param[1])
             elif param[-1] == 'loguniform':
                 value = trial.suggest_float(param_name, param[0], param[1], log=True)
             params_upd[laser_key][param_key] = float(value * scale)
@@ -100,11 +98,11 @@ def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10,
     pol_idx = default_params['pol_idx']
     obj_param = default_params['obj_param']
     n_trials = default_params['n_trials']
+    consider_endpoints = default_params.get('consider_endpoints', False)
     
     # String formatting for database
     study_name = save_path.split('/')[-2]
     Path(os.path.dirname(save_path)).mkdir(parents=True, exist_ok=True)
-    # storage_name = f'sqlite:///{save_path}/study.db'
     
     storage_name = f'{os.path.dirname(save_path)}/study.log'
     file_storage = optuna.storages.JournalFileStorage(storage_name)
@@ -114,7 +112,8 @@ def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10,
     try:
         study = optuna.load_study(study_name=study_name, storage=storage)
     except:
-        sampler = TPESampler(seed=SEED, multivariate=True, n_startup_trials=10)
+        sampler = TPESampler(seed=SEED, multivariate=True, n_startup_trials=10,
+                             consider_endpoints=consider_endpoints)
         study = optuna.create_study(direction="maximize", study_name=study_name,
                                     storage=storage, load_if_exists=True,
                                     sampler=sampler)

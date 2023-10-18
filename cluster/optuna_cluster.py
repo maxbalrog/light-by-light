@@ -19,7 +19,7 @@ def main(save_path):
 if __name__ == '__main__':
     import argparse
     
-    parser = argparse.ArgumentParser(description='Gridscan specifications')
+    parser = argparse.ArgumentParser(description='Optuna specifications')
     parser.add_argument('--save_path', metavar='path', required=True,
                         help='the path to folder with simulation specifications')
     args = parser.parse_args()

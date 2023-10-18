@@ -137,7 +137,7 @@ def kmax_grid(laser_params):
     return kmax
 
 
-def get_spatial_steps(lasers, L, grid_res=1):
+def get_spatial_steps(lasers, L, grid_res=1, equal_resolution=False):
     '''
     Calculates necessary spatial resolution
     
@@ -148,7 +148,8 @@ def get_spatial_steps(lasers, L, grid_res=1):
         kmax = np.maximum(kmax, kmax_grid(laser_params))
     
     # test cigar conjecture
-    kmax = np.max(kmax) * np.ones(3) 
+    if equal_resolution:
+        kmax = np.max(kmax) * np.ones(3) 
     N = np.ceil(grid_res * L * 3 * kmax/np.pi).astype(int)
     N = [pp.helper.fftw_padsize(n) for n in N]
     return N
@@ -180,7 +181,7 @@ def get_minmax_params(laser_params):
     return tau_max, w0_max, lam_min
 
 
-def create_geometry(tau, w0, factors, geometry):
+def create_geometry(tau, w0, factors, geometry, pick_largest_size=False):
     '''
     Given geometry (e.g., 'xz'), calculate longitudinal (long)
     and transversal (trans) extent of spatial simulation box
@@ -192,7 +193,8 @@ def create_geometry(tau, w0, factors, geometry):
     
     trans_size = factors['trans'] * w0
     long_size = factors['long'] * c * tau
-    # long_size = max([long_size, trans_size])
+    if pick_largest_size:
+        long_size = max([long_size, trans_size])
     for ax in long_axes:
         L[ax] = long_size
     for ax in trans_axes:
@@ -224,6 +226,8 @@ def create_ini_file(laser_params, save_path, simbox_params,
     # Information about simulation box
     box_factors = simbox_params['box_factors']
     resolutions = simbox_params['resolutions']
+    equal_resolution = simbox_params.get('equal_resolution', False)
+    pick_largest_size = simbox_params.get('pick_largest_size', False)
     
     # Create list of lasers
     laser_def = dict(phi0=0.0, x_foc=0.0, y_foc=0.0, z_foc=0.0, t_foc=0.0,
@@ -237,8 +241,8 @@ def create_ini_file(laser_params, save_path, simbox_params,
     t_steps = get_t_steps(t_start, t_end, lam, resolutions['t'])
     
     # Determine spatial grid
-    L = create_geometry(tau, w0, box_factors, geometry)
-    N = get_spatial_steps(laser_list, L/2, resolutions['spatial'])
+    L = create_geometry(tau, w0, box_factors, geometry, pick_largest_size)
+    N = get_spatial_steps(laser_list, L/2, resolutions['spatial'], equal_resolution)
     
     # Save some simulation parameters to yaml
     laser_data = {f'laser_{i}': params for i,params in enumerate(laser_params)}
