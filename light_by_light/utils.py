@@ -2,9 +2,11 @@
 General utility functions
 
 Author: Maksim Valialshchikov, @maxbalrog (github)
+Original author of 'field_to_spherical': Alexander Blinne
 '''
 import yaml
 import numpy as np
+import postpic as pp
 
 __all__ = ['read_yaml', 'write_yaml', 'decypher_yaml', 'write_generic_yaml',
            ]
@@ -58,13 +60,58 @@ def collect_study_data(study):
     user_attr_keys = list(trials[0].user_attrs.keys())
     keys = param_keys + user_attr_keys
     data = {key: np.empty(n) for key in keys}
-    # params = {param: np.empty(n) for param in trials[0].params}
-    # user_attrs = {param: np.empty(n) for param in trials[0].user_attrs}
     for i,trial in enumerate(trials):
         for key in param_keys:
             data[key][i] = trial.params[key]
         for key in user_attr_keys:
             data[key][i] = trial.user_attrs[key]
     return data
-        
+
+
+def spherical_to_kartesian(r, theta, phi):
+    """
+    Converts a vector from spherical to kartesian coordinates
+
+    Arguments:
+    r, theta, phi: Components of vector in spherical coordinates
+    """
+    x = r*np.sin(theta)*np.cos(phi)
+    y = r*np.sin(theta)*np.sin(phi)
+    z = r*np.cos(theta)
+    return x, y, z
+
+
+def field_to_spherical(field, phi_offset=0.0, match_resolution_radius=None,
+                       preserve_integral=True, logscale=False,
+                       angular_resolution=None, **kwargs):
+    cval = 0
+    if logscale:
+        field = np.log(field)
+        cval = -100
+    kx, ky, kz = field.meshgrid()
+    # kmax = np.sqrt(np.max(kx**2)+np.max(ky**2)+np.max(kz**2))
+    kmax = np.max([np.max(np.abs(kx)), np.max(np.abs(ky)), np.max(np.abs(kz))])
+    if match_resolution_radius is None:
+        match_resolution_radius = kmax/3
+
+    dk = np.min(field.spacing)
+    nk = int(np.ceil(kmax/dk))
+    if angular_resolution:
+        dphi = dtheta = angular_resolution
+    else:
+        dphi = dtheta = dk/match_resolution_radius
+    ntheta = int(round(np.pi/dtheta))
+    nphi = int(round(2*np.pi/dphi))
+
+    kAx = pp.Axis(name='k', grid=np.arange(0, dk*(nk+1), dk))
+    thetaAx = pp.Axis(name='theta', grid=np.linspace(0, np.pi, ntheta))
+    phiAx = pp.Axis(name='phi', grid=np.linspace(phi_offset, phi_offset+2*np.pi, nphi))
+    field_spherical = field.map_coordinates([kAx, thetaAx, phiAx],
+                                            transform = spherical_to_kartesian,
+                                            preserve_integral=preserve_integral,
+                                            cval=cval, **kwargs)
+    if logscale:
+        field_spherical = np.exp(field_spherical)
+    field_spherical.unit=''
+    return field_spherical
     

@@ -11,8 +11,9 @@ from pathlib import Path
 import os
 
 from vacem.support.resultfile import ResultFile
-from vacem.support.eval_functions import field_to_spherical
+# from vacem.support.eval_functions import field_to_spherical
 
+from light_by_light.utils import field_to_spherical
 from light_by_light.laser_field import LaserBG
 
 __all__ = ['lam_to_omega_in_eV', 'transform_spherical', 'beam_divergence',
@@ -48,7 +49,7 @@ def transform_spherical(theta, phi, coll_angle, geometry='xz', eps=1e-10):
                       np.sin(phi)*np.sin(theta)*np.sin(coll_angle)
         theta_L = np.arccos(cos_theta_L)
         phi_L = np.arccos(-np.cos(theta)/(np.sin(theta_L) + eps))
-    elif geometry == 'xz':
+    elif geometry == 'xz' or geometry == 'z':
         cos_theta_L = np.cos(phi)*np.sin(theta)*np.sin(coll_angle) +\
                       np.cos(theta)*np.cos(coll_angle)
         theta_L = np.arccos(cos_theta_L)
@@ -67,7 +68,8 @@ def beam_divergence(theta, phi, laser_params, geometry):
     geometry: ['xy' or 'xz'] - collision geometry
     '''
     # Calculate angles in transformed coordinate frame
-    coll_angle = laser_params['theta'] if geometry == 'xz' else laser_params['phi']
+    geometry_z = (geometry == 'xz') or (geometry == 'z')
+    coll_angle = laser_params['theta'] if geometry_z else laser_params['phi']
     theta_L, phi_L = transform_spherical(theta[:,None], phi[None,:], coll_angle, geometry)
     
     # Necessary variables
@@ -115,9 +117,6 @@ class SignalAnalyzer:
         self.Nperp_xyz = self.result.get_number_spectrum_polarized_spherical(laser_pol)
         self.x, self.y, self.z = [np.array(ax) for ax in self.N_xyz.axes]
         
-        # res_radius = np.min([ax.max() for ax in [self.x, self.y, self.z]])
-        # self.res_radius = res_radius if fix_res_radius else None
-        
         self.get_spherical_density()
         
         self.check_photon_number()
@@ -141,8 +140,6 @@ class SignalAnalyzer:
         k, theta, phi = N.meshgrid()
         self.N_angular = N.evaluate('k**2 * N').integrate(0).matrix
         self.Nperp_angular = Nperp.evaluate('k**2 * Nperp').integrate(0).matrix
-        # self.N_angular = self.integrate_spherical(self.N.matrix, axis=['k'])
-        # self.Nperp_angular = self.integrate_spherical(self.Nperp.matrix, axis=['k'])
     
     def integrate_spherical(self, arr, axis=['k','theta','phi']):
         if 'k' in axis:
@@ -186,7 +183,6 @@ class SignalAnalyzer:
         self.laser_diagnostics.photon_density()
         self.background_num = self.laser_diagnostics.dphoton_angular.matrix
         self.background_sph_num = self.laser_diagnostics.dphoton_spherical.matrix
-        # self.background_num = self.laser_diagnostics.photon_number_density().matrix
         return self.background_num
     
     def get_discernible_area(self, Nbg=None):

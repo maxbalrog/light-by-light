@@ -17,8 +17,9 @@ from vacem.fields.common import SolverBase
 from vacem.fields.parse_config import ConfigParser
 from vacem.fields.fieldinput import ComplexEInput
 from vacem.fields.lasers import get_lasers_from_config, get_a12_from_sources
-from vacem.support.eval_functions import field_to_spherical
+# from vacem.support.eval_functions import field_to_spherical
 
+from light_by_light.utils import field_to_spherical
 from light_by_light.vacem_ini import W_to_E0
 
 
@@ -83,7 +84,8 @@ class LaserBG:
         
         return self.nrg_from_eb
 
-    def photon_density(self, preserve_integral=False, fix_resolution_radius=False):
+    def photon_density(self, preserve_integral=False, fix_resolution_radius=False,
+                       angular_resolution=None, **kwargs):
         """
         Calculates the differential photon number in momentum space.
         """
@@ -109,10 +111,10 @@ class LaserBG:
         # map photon density to spherical grid
         dphoton_spherical = field_to_spherical(dphoton, preserve_integral=preserve_integral,
                                                match_resolution_radius=resolution_radius,
-                                               order=1)
+                                               angular_resolution=angular_resolution,
+                                               **kwargs)
         k, theta, phi = dphoton_spherical.meshgrid()
         self.dphoton_spherical = dphoton_spherical
-        # self.k, self.theta, self.phi = k, theta, phi
         self.k, self.theta, self.phi = dphoton_spherical.grid
         
         # integrate over energies
@@ -127,13 +129,12 @@ class LaserBG:
         self.photon_xyz = photon_xyz
         self.photon_sph = photon_sph
         
-        err = np.abs(photon_xyz - photon_sph) / photon_xyz
+        err = np.abs(photon_xyz - photon_sph) / (photon_xyz + 1e-10)
         if err > 1e-3:
             print("Warning: total signal on cartesian and spherical grid differ more than 0.1%")
         
         return self.dphoton, self.dphoton_spherical
 
-    
     def poynting_vec(self):
         """
         Calculates the time averaged Poynting vector field.

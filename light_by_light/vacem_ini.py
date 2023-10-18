@@ -147,6 +147,8 @@ def get_spatial_steps(lasers, L, grid_res=1):
     for laser_params in lasers:
         kmax = np.maximum(kmax, kmax_grid(laser_params))
     
+    # test cigar conjecture
+    kmax = np.max(kmax) * np.ones(3) 
     N = np.ceil(grid_res * L * 3 * kmax/np.pi).astype(int)
     N = [pp.helper.fftw_padsize(n) for n in N]
     return N
@@ -188,8 +190,9 @@ def create_geometry(tau, w0, factors, geometry):
     long_axes = list(geometry)
     trans_axes = list(set(axes).difference(long_axes))
     
-    long_size = factors['long'] * c * tau
     trans_size = factors['trans'] * w0
+    long_size = factors['long'] * c * tau
+    # long_size = max([long_size, trans_size])
     for ax in long_axes:
         L[ax] = long_size
     for ax in trans_axes:
