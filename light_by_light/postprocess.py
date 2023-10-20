@@ -253,6 +253,38 @@ class SignalAnalyzer:
             'Nperp_disc_num': self.Nperp_disc_num,
         }
         np.savez(file, **data)
+        
+        
+class SignalAnalyzer_k:
+    def __init__(self, file, laser_pol, laser_params, geometry='xz'):
+        '''
+        Class to calculate signal photons (total and perp) from simulation results.
+        Discernible signal is calculated with self.get_discernible_signal().
+        
+        file: [str] - path to vacem simulation results
+        laser_pol: [instance of vacem.support.eval_functions.polarization_vector] - 
+                    laser polarization vector
+        laser_params: [list of dict] - parameters of laser in the collision
+        geometry: ['xy' or 'xz'] - collision geometry
+        '''
+        self.result = ResultFile(file)
+        self.laser_pol = laser_pol
+        self.laser_params = laser_params
+        self.geometry = geometry
+        
+        self.N_xyz = self.result.get_total_number_spectrum()
+        self.Nperp_xyz = self.result.get_number_spectrum_polarized_spherical(laser_pol)
+        self.x, self.y, self.z = [np.array(ax) for ax in self.N_xyz.axes]
+        
+        self.get_spherical_density()
+        
+        self.check_photon_number()
+        
+        # Laser diagnostics for numerical background
+        ini_file = f'{os.path.dirname(file)}/vacem.ini'
+        self.laser_diagnostics = LaserBG(ini_file)
+        self.energy_num = self.laser_diagnostics.energy()
+    
     
     
     

@@ -181,7 +181,8 @@ def get_minmax_params(laser_params):
     return tau_max, w0_max, lam_min
 
 
-def create_geometry(tau, w0, factors, geometry, pick_largest_size=False):
+def create_geometry(tau, w0, factors, geometry, pick_largest_size=False,
+                    collision_axis='z'):
     '''
     Given geometry (e.g., 'xz'), calculate longitudinal (long)
     and transversal (trans) extent of spatial simulation box
@@ -196,7 +197,7 @@ def create_geometry(tau, w0, factors, geometry, pick_largest_size=False):
     if pick_largest_size:
         long_size = max([long_size, trans_size])
     for ax in long_axes:
-        L[ax] = long_size
+        L[ax] = long_size if ax == collision_axis else max([long_size, trans_size])
     for ax in trans_axes:
         L[ax] = trans_size
     return np.array(list(L.values()))

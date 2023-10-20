@@ -20,6 +20,24 @@ from light_by_light.utils import read_yaml
 __all__ = ['get_trial_params', 'objective_lbl', 'run_optuna_optimization']
 
 
+def get_dependent_params(trial, total_value, params, param_key):
+    '''
+    If we have fixed energy budget for N pulses and want to optimize
+    the energy distribution between them, then the energies of two pulses
+    are dependent parameters.
+    '''
+    n_lasers = len(list(params.keys()))
+    lasers = [f'laser_{idx}' for idx in range(n_lasers)]
+    for laser_key in lasers[:n_lasers-1]:
+        param_name = f'{laser_key}/{param_key}'
+        value = trial.suggest_float(param_name, 0, total_value)
+        params[laser_key][param_key] = float(value)
+        total_value -= value
+    params[lasers[-1]][param_key] = float(total_value)
+    trial.set_user_attr(f'{lasers[-1]}/{param_key}', float(total_value))
+    return params
+
+
 def get_trial_params(trial, optuna_params, default_params):
     '''
     Pick parameters for trial according to their data type and range.
@@ -29,18 +47,23 @@ def get_trial_params(trial, optuna_params, default_params):
     params_upd = deepcopy(default_params)
     for laser_key in optuna_params.keys():
         for param_key in optuna_params[laser_key].keys():
-            param = optuna_params[laser_key][param_key]
-            param_name = f'{laser_key}/{param_key}'
-            scale = 1 if len(param) == 3 else param[2]
-            if param[-1] == 'int':
-                value = trial.suggest_int(param_name, param[0], param[1])
-            elif param[-1] == 'float':
-                value = trial.suggest_float(param_name, param[0], param[1])
-            elif param[-1] == 'uniform':
-                value = trial.suggest_float(param_name, param[0], param[1])
-            elif param[-1] == 'loguniform':
-                value = trial.suggest_float(param_name, param[0], param[1], log=True)
-            params_upd[laser_key][param_key] = float(value * scale)
+            if param_key == 'W':
+                W_total = optuna_params[laser_key][param_key][1]
+                param_upd = get_dependent_params(trial, W_total, params_upd,
+                                                 param_key)
+            else:
+                param = optuna_params[laser_key][param_key]
+                param_name = f'{laser_key}/{param_key}'
+                scale = 1 if len(param) == 3 else param[2]
+                if param[-1] == 'int':
+                    value = trial.suggest_int(param_name, param[0], param[1])
+                elif param[-1] in ['float', 'uniform']:
+                    value = trial.suggest_float(param_name, param[0], param[1])
+                # elif param[-1] == 'uniform':
+                #     value = trial.suggest_float(param_name, param[0], param[1])
+                elif param[-1] == 'loguniform':
+                    value = trial.suggest_float(param_name, param[0], param[1], log=True)
+                params_upd[laser_key][param_key] = float(value * scale)
         params_upd[laser_key]['E0'] = float(W_to_E0(params_upd[laser_key]))
     return params_upd
 
