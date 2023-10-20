@@ -256,7 +256,8 @@ class SignalAnalyzer:
         
         
 class SignalAnalyzer_k:
-    def __init__(self, file, laser_pol, laser_params, geometry='xz'):
+    def __init__(self, file, laser_pol, laser_params, geometry='xz',
+                 bg_params={'order': 1}):
         '''
         Class to calculate signal photons (total and perp) from simulation results.
         Discernible signal is calculated with self.get_discernible_signal().
@@ -266,11 +267,14 @@ class SignalAnalyzer_k:
                     laser polarization vector
         laser_params: [list of dict] - parameters of laser in the collision
         geometry: ['xy' or 'xz'] - collision geometry
+        bg_params: [dict] - params to pass to LaserBG class for numerical background
+                            calculation
         '''
         self.result = ResultFile(file)
         self.laser_pol = laser_pol
         self.laser_params = laser_params
         self.geometry = geometry
+        self.bg_params = bg_params
         
         self.N_xyz = self.result.get_total_number_spectrum()
         self.Nperp_xyz = self.result.get_number_spectrum_polarized_spherical(laser_pol)
@@ -284,6 +288,106 @@ class SignalAnalyzer_k:
         ini_file = f'{os.path.dirname(file)}/vacem.ini'
         self.laser_diagnostics = LaserBG(ini_file)
         self.energy_num = self.laser_diagnostics.energy()
+        
+    def get_spherical_density(self):
+        N = field_to_spherical(self.N_xyz, preserve_integral=False, order=1)
+        Nperp = field_to_spherical(self.Nperp_xyz, preserve_integral=False, order=1)
+        self.N = N
+        self.Nperp = Nperp
+        
+        self.k, self.theta, self.phi = [np.array(ax) for ax in self.N.axes]
+        self.dk = self.k[1] - self.k[0]
+        self.dtheta = self.theta[1] - self.theta[0]
+        self.dphi = self.phi[1] - self.phi[0]
+        
+        k, theta, phi = N.meshgrid()
+        self.N_angular = N.evaluate('k**2 * N').integrate(0).matrix
+        self.Nperp_angular = Nperp.evaluate('k**2 * Nperp').integrate(0).matrix
+    
+    def integrate_spherical(self, arr, axis=['k','theta','phi']):
+        if 'k' in axis:
+            integrated = np.sum(arr*self.k[:,None,None]**2, axis=0) * self.dk
+        if 'phi' in axis:
+            integrated = np.sum(integrated, axis=1) * self.dphi
+        if 'theta' in axis:
+            integrated = np.sum(integrated*np.sin(self.theta)) * self.dtheta
+        return integrated
+     
+    def check_photon_number(self):
+        N_total_xyz = self.N_xyz.integrate().matrix
+        N_total_sph = self.integrate_spherical(self.N.matrix,
+                                               axis=['k', 'theta','phi'])
+        if not np.isclose(N_total_xyz, N_total_sph, rtol=5e-3):
+            print('Warning: total signal on cartesian and spherical grid differ more than 0.5%')
+        self.N_total = N_total_sph
+        
+        Nperp_total_xyz = self.Nperp_xyz.integrate().matrix
+        Nperp_total_sph = self.integrate_spherical(self.Nperp.matrix,
+                                                   axis=['k','theta','phi'])
+        self.Nperp_total = Nperp_total_sph
+        
+    def get_background_num(self):
+        self.laser_diagnostics.photon_density(**self.bg_params)
+        self.background_num = self.laser_diagnostics.dphoton_angular.matrix
+        self.background_sph_num = self.laser_diagnostics.dphoton_spherical.matrix
+        return self.background_num
+    
+    def get_discernible_area(self, Nbg=None):
+        if Nbg is None:
+            Nbg = self.get_background_num()
+        
+        discernible_area = self.N > Nbg
+        discernible_area_perp = self.Nperp > self.pol_purity*Nbg
+        # for idx_theta in range(len(self.theta)):
+        #     for idx_phi in range(len(self.phi)):
+        #         idx = self.N_angular[:,idx_theta,idx_phi] > Nbg[:,idx_theta,idx_phi]
+        #         discernible_area[idx,idx_theta,idx_phi] = True
+        #         idx = self.Nperp_angular[:,idx_theta,idx_phi] > self.pol_purity*Nbg[:,idx_theta,idx_phi]
+        #         discernible_area_perp[idx,idx_theta,idx_phi] = True
+        return discernible_area, discernible_area_perp
+    
+    def _get_discernible_signal(self, discernible_area, discernible_area_perp):      
+        N_disc, Nperp_disc = 0, 0
+        for i in range(len(self.k)):
+            for j in range(len(self.theta)):
+                idx = discernible_area[i,j]
+                N_disc += np.sum(self.N[i,j,idx]) * self.k[i]**2 * np.sin(self.theta[j])
+                idx = discernible_area_perp[i,j]
+                Nperp_disc += np.sum(self.Nperp[i,j,idx]) * self.k[i]**2 * np.sin(self.theta[j])
+        N_disc = N_disc * self.dk * self.dphi * self.dtheta
+        Nperp_disc = Nperp_disc * self.dk * self.dphi * self.dtheta
+        return N_disc, Nperp_disc
+    
+    def get_discernible_signal(self, pol_purity=1e-10):
+        # Background is calculated numerically. 
+        # _num stands for numerically calculated values.
+        self.pol_purity = pol_purity
+        
+        Nbg_num = self.get_background_num()
+        
+        areas_num = self.get_discernible_area(Nbg_num)
+        self.discernible_area_num, self.discernible_area_perp_num = areas_num
+        
+        self.N_disc_num, self.Nperp_disc_num = self._get_discernible_signal(*areas_num)
+        
+    def save_data(self, save_path):
+        Path(f'{os.path.dirname(save_path)}').mkdir(parents=True, exist_ok=True)
+        file = f'{os.path.dirname(save_path)}/postprocess_data.npz'
+        data = {
+            'k': self.k,
+            'theta': self.theta,
+            'phi': self.phi,
+            'N_sph': self.N,
+            # 'Nperp_sph': self.Nperp,
+            'N_total': self.N_total,
+            'Nperp_total': self.Nperp_total,
+            'background_sph_num': self.background_sph_num,
+            'discernible_area_num': self.discernible_area_num,
+            'discernible_area_perp_num': self.discernible_area_perp_num,
+            'N_disc_num': self.N_disc_num,
+            'Nperp_disc_num': self.Nperp_disc_num,
+        }
+        np.savez(file, **data)
     
     
     
