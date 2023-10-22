@@ -257,7 +257,7 @@ class SignalAnalyzer:
         
 class SignalAnalyzer_k:
     def __init__(self, file, laser_pol, laser_params, geometry='xz',
-                 bg_params={'order': 1}):
+                 sphmap_params={'order': 1}):
         '''
         Class to calculate signal photons (total and perp) from simulation results.
         Discernible signal is calculated with self.get_discernible_signal().
@@ -267,14 +267,14 @@ class SignalAnalyzer_k:
                     laser polarization vector
         laser_params: [list of dict] - parameters of laser in the collision
         geometry: ['xy' or 'xz'] - collision geometry
-        bg_params: [dict] - params to pass to LaserBG class for numerical background
-                            calculation
+        sphmap_params: [dict] - spherical map params, params to pass to field_to_spherical() 
+                                for map between spherical and cartesian grids
         '''
         self.result = ResultFile(file)
         self.laser_pol = laser_pol
         self.laser_params = laser_params
         self.geometry = geometry
-        self.bg_params = bg_params
+        self.sphmap_params = sphmap_params
         
         self.N_xyz = self.result.get_total_number_spectrum()
         self.Nperp_xyz = self.result.get_number_spectrum_polarized_spherical(laser_pol)
@@ -290,8 +290,8 @@ class SignalAnalyzer_k:
         self.energy_num = self.laser_diagnostics.energy()
         
     def get_spherical_density(self):
-        N = field_to_spherical(self.N_xyz, preserve_integral=False, order=1)
-        Nperp = field_to_spherical(self.Nperp_xyz, preserve_integral=False, order=1)
+        N = field_to_spherical(self.N_xyz, preserve_integral=False, **self.sphmap_params)
+        Nperp = field_to_spherical(self.Nperp_xyz, preserve_integral=False, **self.sphmap_params)
         self.N = N
         self.Nperp = Nperp
         
@@ -327,17 +327,17 @@ class SignalAnalyzer_k:
         self.Nperp_total = Nperp_total_sph
         
     def get_background_num(self):
-        self.laser_diagnostics.photon_density(**self.bg_params)
+        self.laser_diagnostics.photon_density(**self.sphmap_params)
         self.background_num = self.laser_diagnostics.dphoton_angular.matrix
         self.background_sph_num = self.laser_diagnostics.dphoton_spherical.matrix
-        return self.background_num
+        return self.background_sph_num
     
     def get_discernible_area(self, Nbg=None):
         if Nbg is None:
             Nbg = self.get_background_num()
         
-        discernible_area = self.N > Nbg
-        discernible_area_perp = self.Nperp > self.pol_purity*Nbg
+        discernible_area = self.N.matrix > Nbg
+        discernible_area_perp = self.Nperp.matrix > self.pol_purity*Nbg
         # for idx_theta in range(len(self.theta)):
         #     for idx_phi in range(len(self.phi)):
         #         idx = self.N_angular[:,idx_theta,idx_phi] > Nbg[:,idx_theta,idx_phi]
@@ -351,9 +351,9 @@ class SignalAnalyzer_k:
         for i in range(len(self.k)):
             for j in range(len(self.theta)):
                 idx = discernible_area[i,j]
-                N_disc += np.sum(self.N[i,j,idx]) * self.k[i]**2 * np.sin(self.theta[j])
+                N_disc += np.sum(self.N.matrix[i,j,idx]) * self.k[i]**2 * np.sin(self.theta[j])
                 idx = discernible_area_perp[i,j]
-                Nperp_disc += np.sum(self.Nperp[i,j,idx]) * self.k[i]**2 * np.sin(self.theta[j])
+                Nperp_disc += np.sum(self.Nperp.matrix[i,j,idx]) * self.k[i]**2 * np.sin(self.theta[j])
         N_disc = N_disc * self.dk * self.dphi * self.dtheta
         Nperp_disc = Nperp_disc * self.dk * self.dphi * self.dtheta
         return N_disc, Nperp_disc

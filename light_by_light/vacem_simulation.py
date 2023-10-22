@@ -11,7 +11,7 @@ from vacem.support.eval_functions import polarization_vector
 
 from light_by_light.vacem_ini import W_to_E0, create_ini_file
 from light_by_light.utils import read_yaml, get_grid_from_list
-from light_by_light.postprocess import SignalAnalyzer
+from light_by_light.postprocess import SignalAnalyzer, SignalAnalyzer_k
 
 __all__ = ['run_simulation', 'run_simulation_postprocess', 'run_gridscan']
 
@@ -35,7 +35,8 @@ def run_simulation(laser_params, save_path, simbox_params,
 
 def run_simulation_postprocess(laser_params, save_path, simbox_params,
                                geometry='xz', low_memory_mode=False, n_threads=12,
-                               pol_idx=0, eps=1e-10):
+                               pol_idx=0, eps=1e-10, discernible_spectral=False,
+                               sphmap_params={'order': 1}):
     # Make sure the directory exists
     Path(os.path.dirname(save_path)).mkdir(parents=True, exist_ok=True)
     
@@ -55,7 +56,11 @@ def run_simulation_postprocess(laser_params, save_path, simbox_params,
                                     phi/180*np.pi,
                                     beta/180*np.pi)
     vacem_file = f'{os.path.dirname(save_path)}/_vacem.npz'
-    signal_analyzer = SignalAnalyzer(vacem_file, laser_pol, laser_params, geometry)
+    if not discernible_spectral:
+        signal_analyzer = SignalAnalyzer(vacem_file, laser_pol, laser_params, geometry)
+    else:
+        signal_analyzer = SignalAnalyzer_k(vacem_file, laser_pol, laser_params, geometry,
+                                           sphmap_params)
     signal_analyzer.get_discernible_signal()
     signal_analyzer.save_data(save_path)
     return 1

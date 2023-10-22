@@ -82,7 +82,7 @@ def spherical_to_kartesian(r, theta, phi):
 
 
 def field_to_spherical(field, phi_offset=0.0, match_resolution_radius=None,
-                       preserve_integral=True, logscale=False,
+                       preserve_integral=False, logscale=False,
                        angular_resolution=None, **kwargs):
     cval = 0
     if logscale:

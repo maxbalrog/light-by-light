@@ -84,8 +84,7 @@ class LaserBG:
         
         return self.nrg_from_eb
 
-    def photon_density(self, preserve_integral=False, fix_resolution_radius=False,
-                       angular_resolution=None, **kwargs):
+    def photon_density(self, preserve_integral=False, **sphmap_params):
         """
         Calculates the differential photon number in momentum space.
         """
@@ -103,16 +102,14 @@ class LaserBG:
             ax.name = 'k' + name
         self.dphoton = dphoton
         
-        if fix_resolution_radius:
-            resolution_radius = np.min([kx.max(), ky.max(), kz.max()])
-        else:
-            resolution_radius = None
+        # if fix_resolution_radius:
+        #     resolution_radius = np.min([kx.max(), ky.max(), kz.max()])
+        # else:
+        #     resolution_radius = None
         
         # map photon density to spherical grid
         dphoton_spherical = field_to_spherical(dphoton, preserve_integral=preserve_integral,
-                                               match_resolution_radius=resolution_radius,
-                                               angular_resolution=angular_resolution,
-                                               **kwargs)
+                                               **sphmap_params)
         k, theta, phi = dphoton_spherical.meshgrid()
         self.dphoton_spherical = dphoton_spherical
         self.k, self.theta, self.phi = dphoton_spherical.grid

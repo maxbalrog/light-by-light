@@ -32,8 +32,10 @@ def get_dependent_params(trial, total_value, params, param_key):
         param_name = f'{laser_key}/{param_key}'
         value = trial.suggest_float(param_name, 0, total_value)
         params[laser_key][param_key] = float(value)
+        params[laser_key]['E0'] = float(W_to_E0(params[laser_key]))
         total_value -= value
     params[lasers[-1]][param_key] = float(total_value)
+    params[lasers[-1]]['E0'] = float(W_to_E0(params[lasers[-1]]))
     trial.set_user_attr(f'{lasers[-1]}/{param_key}', float(total_value))
     return params
 
@@ -70,7 +72,8 @@ def get_trial_params(trial, optuna_params, default_params):
 
 def objective_lbl(trial, default_params, optuna_params, save_path, geometry='xz',
                   obj_param='N_total', low_memory_mode=False, n_threads=12,
-                  pol_idx=0, eps=1e-10):
+                  pol_idx=0, eps=1e-10, discernible_spectral=False,
+                  sphmap_params={'order': 1}):
     '''
     Objective function for optuna optimization.
     
@@ -98,13 +101,16 @@ def objective_lbl(trial, default_params, optuna_params, save_path, geometry='xz'
     # Simulation 
     run_simulation_postprocess(laser_params, save_folder, simbox_params,
                                geometry, low_memory_mode, n_threads,
-                               pol_idx, eps)
+                               pol_idx, eps,
+                               discernible_spectral=discernible_spectral,
+                               sphmap_params=sphmap_params)
     
     # Extracting objective function
     result = np.load(f'{os.path.dirname(save_folder)}/postprocess_data.npz')
     for key in ["N_total", "Nperp_total", "N_disc", "Nperp_disc",
                 "N_disc_num", "Nperp_disc_num"]:
-        trial.set_user_attr(key, float(result[key]))
+        if key in result.keys():
+            trial.set_user_attr(key, float(result[key]))
     return float(result[obj_param])
     
 
@@ -122,6 +128,8 @@ def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10,
     obj_param = default_params['obj_param']
     n_trials = default_params['n_trials']
     consider_endpoints = default_params.get('consider_endpoints', False)
+    sphmap_params = default_params.get('sphmap_params', {'order': 1})
+    discernible_spectral = default_params.get('discernible_spectral', False)
     
     # String formatting for database
     study_name = save_path.split('/')[-2]
@@ -150,7 +158,9 @@ def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10,
                   obj_param=obj_param,
                   low_memory_mode=low_memory_mode,
                   n_threads=n_threads,
-                  pol_idx=pol_idx)
+                  pol_idx=pol_idx,
+                  discernible_spectral=discernible_spectral,
+                  sphmap_params=sphmap_params)
     
     # Let the optimization begin!
     study.optimize(obj, n_trials=n_trials)
