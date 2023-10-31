@@ -16,9 +16,10 @@ def main(save_path):
     lasers = yaml_data['lasers']
     params['laser_params'] = [lasers[f'laser_{i}'] for i in range(len(lasers))]
     params['save_path'] = save_path
-    keys = ['simbox_params', 'geometry', 'low_memory_mode', 'n_threads', 'pol_idx']
+    keys = ['simbox_params', 'geometry', 'low_memory_mode', 'n_threads', 'pol_idx',
+            'discernible_spectral', 'sphmap_params']
     for key in keys:
-        params[key] = yaml_data[key]
+        params[key] = yaml_data.get(key, None)
     
     run_simulation_postprocess(**params)
 

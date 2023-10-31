@@ -81,6 +81,19 @@ def spherical_to_kartesian(r, theta, phi):
     return x, y, z
 
 
+def cylindrical_to_kartesian(r, phi, z):
+    """
+    Converts a vector from cylindrical to kartesian coordinates
+
+    Arguments:
+    r, phi, z: Components of vector in cylindrical coordinates
+    """
+    x = r*np.cos(phi)
+    y = r*np.sin(phi)
+    z = z
+    return x, y, z
+
+
 def field_to_spherical(field, phi_offset=0.0, match_resolution_radius=None,
                        preserve_integral=False, logscale=False,
                        angular_resolution=None, **kwargs):
@@ -114,4 +127,36 @@ def field_to_spherical(field, phi_offset=0.0, match_resolution_radius=None,
         field_spherical = np.exp(field_spherical)
     field_spherical.unit=''
     return field_spherical
-    
+ 
+
+def field_to_cylindrical(field, phi_offset=0.0, match_resolution_radius=None,
+                         preserve_integral=False, logscale=False,
+                         angular_resolution=None, **kwargs):
+    cval = 0
+    if logscale:
+        field = np.log(field)
+        cval = -100
+    kx, ky, kz = field.meshgrid()
+    kmax = np.max([np.max(np.abs(kx)), np.max(np.abs(ky))])
+    if match_resolution_radius is None:
+        match_resolution_radius = kmax/3
+
+    dk = np.min(field.spacing[:2])
+    nk = int(np.ceil(kmax/dk))
+    if angular_resolution:
+        dphi = angular_resolution
+    else:
+        dphi = dk/match_resolution_radius
+    nphi = int(round(2*np.pi/dphi))
+
+    kAx = pp.Axis(name='k', grid=np.arange(0, dk*(nk+1), dk))
+    phiAx = pp.Axis(name='phi', grid=np.linspace(phi_offset, phi_offset+2*np.pi, nphi))
+    kzAx = field.axes[2]
+    field_transformed = field.map_coordinates([kAx, phiAx, kzAx],
+                                              transform = cylindrical_to_kartesian,
+                                              preserve_integral=preserve_integral,
+                                              cval=cval, **kwargs)
+    if logscale:
+        field_transformed = np.exp(field_transformed)
+    field_transformed.unit=''
+    return field_transformed
