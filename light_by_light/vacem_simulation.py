@@ -36,7 +36,7 @@ def run_simulation(laser_params, save_path, simbox_params,
 def run_simulation_postprocess(laser_params, save_path, simbox_params,
                                geometry='xz', low_memory_mode=False, n_threads=12,
                                pol_idx=0, eps=1e-10, discernible_spectral=False,
-                               sphmap_params={'order': 1}):
+                               sphmap_params={'order': 1}, sph_limits={}):
     # Make sure the directory exists
     Path(os.path.dirname(save_path)).mkdir(parents=True, exist_ok=True)
     
@@ -61,7 +61,7 @@ def run_simulation_postprocess(laser_params, save_path, simbox_params,
     else:
         signal_analyzer = SignalAnalyzer_k(vacem_file, laser_pol, laser_params, geometry,
                                            sphmap_params)
-    signal_analyzer.get_discernible_signal()
+    signal_analyzer.get_discernible_signal(sph_limits=sph_limits)
     signal_analyzer.save_data(save_path)
     return 1
 

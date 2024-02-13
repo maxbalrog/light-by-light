@@ -17,7 +17,7 @@ def main(save_path):
     params['laser_params'] = [lasers[f'laser_{i}'] for i in range(len(lasers))]
     params['save_path'] = save_path
     keys = ['simbox_params', 'geometry', 'low_memory_mode', 'n_threads', 'pol_idx',
-            'discernible_spectral', 'sphmap_params']
+            'discernible_spectral', 'sphmap_params', 'sph_limits']
     for key in keys:
         params[key] = yaml_data.get(key, None)
     

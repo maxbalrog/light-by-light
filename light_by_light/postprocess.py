@@ -346,19 +346,50 @@ class SignalAnalyzer_k:
         #         discernible_area_perp[idx,idx_theta,idx_phi] = True
         return discernible_area, discernible_area_perp
     
-    def _get_discernible_signal(self, discernible_area, discernible_area_perp):      
+    def _get_sph_region(self, sph_limits):
+        if sph_limits is None:
+            sph_limits = {}
+        k_limit = sph_limits.get('k', [0, np.inf])
+        theta_limit = sph_limits.get('theta', [0, np.pi])
+        phi_limit = sph_limits.get('phi', [0, 2*np.pi])
+        
+        mask_k = (self.k >= k_limit[0]) * (self.k <= k_limit[1])
+        idx_k = np.arange(len(self.k))[mask_k]
+        mask_theta = (self.theta >= theta_limit[0]) * (self.theta <= theta_limit[1])
+        idx_theta = np.arange(len(self.theta))[mask_theta]
+        mask_phi = (self.phi >= phi_limit[0]) * (self.phi <= phi_limit[1])
+        idx_phi = np.arange(len(self.phi))[mask_phi]
+        return (idx_k, idx_theta, idx_phi), (mask_k, mask_theta, mask_phi)
+    
+    def _get_discernible_signal(self, discernible_area, discernible_area_perp, sph_limits=None):      
+        idx, mask = self._get_sph_region(sph_limits)
+        idx_k, idx_theta, idx_phi = idx
+        mask_k, mask_theta, mask_phi = mask
+        
         N_disc, Nperp_disc = 0, 0
-        for i in range(len(self.k)):
-            for j in range(len(self.theta)):
-                idx = discernible_area[i,j]
+        for i in idx_k:
+            for j in idx_theta:
+                idx = discernible_area[i,j] * mask_phi
                 N_disc += np.sum(self.N.matrix[i,j,idx]) * self.k[i]**2 * np.sin(self.theta[j])
-                idx = discernible_area_perp[i,j]
+                idx = discernible_area_perp[i,j] * mask_phi
                 Nperp_disc += np.sum(self.Nperp.matrix[i,j,idx]) * self.k[i]**2 * np.sin(self.theta[j])
         N_disc = N_disc * self.dk * self.dphi * self.dtheta
         Nperp_disc = Nperp_disc * self.dk * self.dphi * self.dtheta
         return N_disc, Nperp_disc
     
-    def get_discernible_signal(self, pol_purity=1e-10):
+    # def _get_discernible_signal(self, discernible_area, discernible_area_perp):      
+    #     N_disc, Nperp_disc = 0, 0
+    #     for i in range(len(self.k)):
+    #         for j in range(len(self.theta)):
+    #             idx = discernible_area[i,j]
+    #             N_disc += np.sum(self.N.matrix[i,j,idx]) * self.k[i]**2 * np.sin(self.theta[j])
+    #             idx = discernible_area_perp[i,j]
+    #             Nperp_disc += np.sum(self.Nperp.matrix[i,j,idx]) * self.k[i]**2 * np.sin(self.theta[j])
+    #     N_disc = N_disc * self.dk * self.dphi * self.dtheta
+    #     Nperp_disc = Nperp_disc * self.dk * self.dphi * self.dtheta
+    #     return N_disc, Nperp_disc
+    
+    def get_discernible_signal(self, pol_purity=1e-10, sph_limits=None):
         # Background is calculated numerically. 
         # _num stands for numerically calculated values.
         self.pol_purity = pol_purity
@@ -368,7 +399,8 @@ class SignalAnalyzer_k:
         areas_num = self.get_discernible_area(Nbg_num)
         self.discernible_area_num, self.discernible_area_perp_num = areas_num
         
-        self.N_disc_num, self.Nperp_disc_num = self._get_discernible_signal(*areas_num)
+        self.N_disc_num, self.Nperp_disc_num = self._get_discernible_signal(*areas_num,
+                                                                            sph_limits=sph_limits)
         
     def save_data(self, save_path):
         Path(f'{os.path.dirname(save_path)}').mkdir(parents=True, exist_ok=True)

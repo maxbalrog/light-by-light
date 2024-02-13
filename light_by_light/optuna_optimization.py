@@ -30,10 +30,10 @@ def get_dependent_params(trial, total_value, params, param_key):
     lasers = [f'laser_{idx}' for idx in range(n_lasers)]
     for laser_key in lasers[:n_lasers-1]:
         param_name = f'{laser_key}/{param_key}'
-        value = trial.suggest_float(param_name, 0, total_value)
+        value = trial.suggest_float(param_name, 0., total_value)
         params[laser_key][param_key] = float(value)
         params[laser_key]['E0'] = float(W_to_E0(params[laser_key]))
-        total_value -= value
+        total_value -= float(value)
     params[lasers[-1]][param_key] = float(total_value)
     params[lasers[-1]]['E0'] = float(W_to_E0(params[lasers[-1]]))
     trial.set_user_attr(f'{lasers[-1]}/{param_key}', float(total_value))
@@ -50,7 +50,7 @@ def get_trial_params(trial, optuna_params, default_params):
     for laser_key in optuna_params.keys():
         for param_key in optuna_params[laser_key].keys():
             if param_key == 'W':
-                W_total = optuna_params[laser_key][param_key][1]
+                W_total = float(optuna_params[laser_key][param_key][1])
                 param_upd = get_dependent_params(trial, W_total, params_upd,
                                                  param_key)
             else:
@@ -73,7 +73,7 @@ def get_trial_params(trial, optuna_params, default_params):
 def objective_lbl(trial, default_params, optuna_params, save_path, geometry='xz',
                   obj_param='N_total', low_memory_mode=False, n_threads=12,
                   pol_idx=0, eps=1e-10, discernible_spectral=False,
-                  sphmap_params={'order': 1}):
+                  sphmap_params={'order': 1}, sph_limits=None):
     '''
     Objective function for optuna optimization.
     
@@ -103,7 +103,7 @@ def objective_lbl(trial, default_params, optuna_params, save_path, geometry='xz'
                                geometry, low_memory_mode, n_threads,
                                pol_idx, eps,
                                discernible_spectral=discernible_spectral,
-                               sphmap_params=sphmap_params)
+                               sphmap_params=sphmap_params, sph_limits=sph_limits)
     
     # Extracting objective function
     result = np.load(f'{os.path.dirname(save_folder)}/postprocess_data.npz')
@@ -130,6 +130,7 @@ def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10,
     consider_endpoints = default_params.get('consider_endpoints', False)
     sphmap_params = default_params.get('sphmap_params', {'order': 1})
     discernible_spectral = default_params.get('discernible_spectral', False)
+    sph_limits = default_params.get('sph_limits', None)
     
     # String formatting for database
     study_name = save_path.split('/')[-2]
@@ -160,7 +161,8 @@ def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10,
                   n_threads=n_threads,
                   pol_idx=pol_idx,
                   discernible_spectral=discernible_spectral,
-                  sphmap_params=sphmap_params)
+                  sphmap_params=sphmap_params,
+                  sph_limits=sph_limits)
     
     # Let the optimization begin!
     study.optimize(obj, n_trials=n_trials)
