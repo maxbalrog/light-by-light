@@ -64,6 +64,9 @@ class LaserBG:
         
         nrg_dens = a1.evaluate('prefactor * (kx**2 + ky**2 + kz**2)' \
                    + '*(a1.real**2 + a1.imag**2 + a2.real**2 + a2.imag**2)')
+        # nrg = nrg_dens.integrate(method='fast')
+        # nrg_dens = a1.evaluate('prefactor * (kx**2 + ky**2 + kz**2)' \
+        #            + '*(a1.real**2 + a1.imag**2 + a2.real**2 + a2.imag**2)')
         nrg = nrg_dens.integrate(method='fast')
         self.nrg = nrg.matrix
         

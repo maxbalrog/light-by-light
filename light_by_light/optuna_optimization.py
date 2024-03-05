@@ -125,9 +125,13 @@ def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10,
     low_memory_mode = default_params['low_memory_mode']
     n_threads = default_params['n_threads']
     pol_idx = default_params['pol_idx']
+    
     obj_param = default_params['obj_param']
     n_trials = default_params['n_trials']
     consider_endpoints = default_params.get('consider_endpoints', False)
+    consider_prior = default_params.get('consider_prior', True)
+    n_startup_trials = default_params.get('n_startup_trials', 10)
+    
     sphmap_params = default_params.get('sphmap_params', {'order': 1})
     discernible_spectral = default_params.get('discernible_spectral', False)
     sph_limits = default_params.get('sph_limits', None)
@@ -144,7 +148,8 @@ def run_optuna_optimization(default_yaml, optuna_yaml, save_path, eps=1e-10,
     try:
         study = optuna.load_study(study_name=study_name, storage=storage)
     except:
-        sampler = TPESampler(seed=SEED, multivariate=True, n_startup_trials=10,
+        sampler = TPESampler(consider_prior=consider_prior, seed=SEED,
+                             multivariate=True, n_startup_trials=n_startup_trials,
                              consider_endpoints=consider_endpoints)
         study = optuna.create_study(direction="maximize", study_name=study_name,
                                     storage=storage, load_if_exists=True,
