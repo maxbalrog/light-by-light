@@ -14,4 +14,5 @@ This package was used to obtain results for our paper [2].
 
 ## Resources
 [1] - A. Blinne, et al. "All-optical signatures of quantum vacuum nonlinearities in generic laser fields." Physical Review D 99.1 (2019): 016006.
+
 [2] - In progress...
