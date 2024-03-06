@@ -232,6 +232,7 @@ class SignalAnalyzer:
         file = f'{os.path.dirname(save_path)}/postprocess_data.npz'
         data = {
             # 'k': self.k,
+            'energy_num': self.energy_num,
             'theta': self.theta,
             'phi': self.phi,
             # 'N_sph': self.N,
@@ -406,6 +407,7 @@ class SignalAnalyzer_k:
         Path(f'{os.path.dirname(save_path)}').mkdir(parents=True, exist_ok=True)
         file = f'{os.path.dirname(save_path)}/postprocess_data.npz'
         data = {
+            'energy_num': self.energy_num,
             'k': self.k,
             'theta': self.theta,
             'phi': self.phi,
