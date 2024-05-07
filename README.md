@@ -12,7 +12,7 @@ This package was used to obtain results for our paper [2].
 
 Example optimization scenario is shown on the figure. Here we consider the collision of two optical laser beams, where one beam (pump) is focused to its diffraction limit (waist size $w_0 = \lambda_0$) while other beam (probe) has an elliptic cross section with two independent waist sizes ($w_{x,y} = \mu_{x,y} \lambda_0$). We are interested in maximizing the total discernible quantum vacuum signal. The colormap corresponds to simulations from a grid scan and green squares correspond to optimization trials. Even for two variable parameters the grid simulations require a lot of computational power which quickly becomes unfeasible for higher-dimensional parameter spaces. Bayesian optimization helps to explore these parameter spaces much more efficiently.
 
-<img src="figures/example.png" alt="drawing" width="600"/>
+<img src="figures/example.png" alt="drawing" width="400"/>
 
 ## Potential improvements -> implemented in new repo [light-by-light-botorch](https://github.com/maxbalrog/light-by-light-botorch)
 1. Since it is not easy to get access to optuna surrogate model and posterior distribution of TPE sampler, we plan to switch to a more versatile Bayesian library: BoTorch and Ax.
