@@ -136,6 +136,7 @@ def run_gridscan(default_yaml, vary_yaml, save_path, eps=1e-10):
     sphmap_params = default_params.get('sphmap_params', {'order': 1})
     discernible_spectral = default_params.get('discernible_spectral', False)
     sph_limits = default_params.get('sph_limits', None)
+    do_energy_budget = default_params.get('do_energy_budget', True)
     
     # Determine which parameter to vary
     key = list(params_vary.keys())[0]
@@ -152,7 +153,7 @@ def run_gridscan(default_yaml, vary_yaml, save_path, eps=1e-10):
         scale = param_grid[1]
         param_grid = param_grid[0]
     # Poor way to introduce energy scan with fixed total energy budget for two pulses
-    if param_key == 'W':
+    if param_key == 'W' and do_energy_budget:
         n_lasers = len(default_params['lasers'].keys())
         W_total = sum([default_params['lasers'][f'laser_{i}']['W'] for i in range(n_lasers)])
         idx = 1 - int(section_key.split('_')[-1])
@@ -172,7 +173,7 @@ def run_gridscan(default_yaml, vary_yaml, save_path, eps=1e-10):
         if key == 'lasers':
             default_params[key][section_key]['E0'] = float(W_to_E0(default_params[key][section_key]))
         # Poor way to introduce energy scan with fixed total energy budget for two pulses
-        if param_key == 'W':
+        if param_key == 'W' and do_energy_budget:
             default_params[key][other_laser][param_key] = float(W_total - param_value * scale)
             default_params[key][other_laser]['E0'] = float(W_to_E0(default_params[key][other_laser]))
 

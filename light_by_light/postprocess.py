@@ -49,7 +49,7 @@ def transform_spherical(theta, phi, coll_angle, geometry='xz', eps=1e-10):
                       np.sin(phi)*np.sin(theta)*np.sin(coll_angle)
         theta_L = np.arccos(cos_theta_L)
         phi_L = np.arccos(-np.cos(theta)/(np.sin(theta_L) + eps))
-    elif geometry == 'xz' or geometry == 'z':
+    elif geometry == 'xz' or geometry == 'z' or geometry == 'xyz':
         cos_theta_L = np.cos(phi)*np.sin(theta)*np.sin(coll_angle) +\
                       np.cos(theta)*np.cos(coll_angle)
         theta_L = np.arccos(cos_theta_L)
