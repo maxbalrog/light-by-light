@@ -231,10 +231,6 @@ def create_ini_file(laser_params, save_path, simbox_params,
     pick_largest_size = simbox_params.get('pick_largest_size', False)
     
     # Create list of lasers
-    # laser_def = dict(phi0=0.0, x_foc=0.0, y_foc=0.0, z_foc=0.0, t_foc=0.0,
-    #                  order=order, spectrum_method='complex')
-    # laser_def = dict(phi0=0.0, x_foc=0.0, y_foc=0.0, z_foc=0.0, t_foc=0.0,
-    #                  spectrum_method='complex')
     laser_def = dict(x_foc=0.0, y_foc=0.0, z_foc=0.0, t_foc=0.0,
                      spectrum_method='complex')
     if 'order' not in laser_params[0].keys():

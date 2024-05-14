@@ -48,6 +48,7 @@ class LaserBG:
 
         self.fs = FieldSolver(self.sb)
         self.fs.setup(*a12)
+        self.kx, self.ky, self.kz = self.a1.meshgrid()
         
         self.time = time
     
