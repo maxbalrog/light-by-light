@@ -96,7 +96,7 @@ def cylindrical_to_kartesian(r, phi, z):
 
 def field_to_spherical(field, phi_offset=0.0, match_resolution_radius=None,
                        preserve_integral=False, logscale=False,
-                       angular_resolution=None, **kwargs):
+                       angular_resolution=None, k=None, **kwargs):
     cval = 0
     if logscale:
         field = np.log(field)
@@ -116,7 +116,9 @@ def field_to_spherical(field, phi_offset=0.0, match_resolution_radius=None,
     ntheta = int(round(np.pi/dtheta))
     nphi = int(round(2*np.pi/dphi))
 
-    kAx = pp.Axis(name='k', grid=np.arange(0, dk*(nk+1), dk))
+    kgrid = np.arange(0, dk*(nk+1), dk) if k is None else k
+    # kAx = pp.Axis(name='k', grid=np.arange(0, dk*(nk+1), dk))
+    kAx = pp.Axis(name='k', grid=kgrid)
     thetaAx = pp.Axis(name='theta', grid=np.linspace(0, np.pi, ntheta))
     phiAx = pp.Axis(name='phi', grid=np.linspace(phi_offset, phi_offset+2*np.pi, nphi))
     field_spherical = field.map_coordinates([kAx, thetaAx, phiAx],
@@ -148,7 +150,7 @@ def field_to_cylindrical(field, phi_offset=0.0, match_resolution_radius=None,
     else:
         dphi = dk/match_resolution_radius
     nphi = int(round(2*np.pi/dphi))
-
+    
     kAx = pp.Axis(name='k', grid=np.arange(0, dk*(nk+1), dk))
     phiAx = pp.Axis(name='phi', grid=np.linspace(phi_offset, phi_offset+2*np.pi, nphi))
     kzAx = field.axes[2]

@@ -328,7 +328,8 @@ class SignalAnalyzer_k:
         self.Nperp_total = Nperp_total_sph
         
     def get_background_num(self):
-        self.laser_diagnostics.photon_density(**self.sphmap_params)
+        # self.laser_diagnostics.photon_density(**self.sphmap_params)
+        self.laser_diagnostics.photon_density(self.sphmap_params, k=self.k)
         self.background_num = self.laser_diagnostics.dphoton_angular.matrix
         self.background_sph_num = self.laser_diagnostics.dphoton_spherical.matrix
         return self.background_sph_num
